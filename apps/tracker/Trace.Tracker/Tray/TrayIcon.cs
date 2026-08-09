@@ -157,9 +157,18 @@ internal sealed class TrayIcon : IDisposable
 
         if (executable is null)
         {
-            Log.Warn("Could not find Trace.exe next to the tracker; cannot open the dashboard.");
+            Log.Warn(
+                "Could not locate Trace.exe. Looked beside the tracker, two levels up, and in "
+                + $"'{InstalledDashboardPath}'.");
+
+            // Say what to do about it. "Could not be found" tells the user
+            // nothing they did not already know from the window not opening.
             _icon.ShowBalloonTip(
-                5000, "Trace", "The Trace window could not be found.", ToolTipIcon.Warning);
+                7000,
+                "Trace window not found",
+                "The tracker is running and still recording, but the Trace window is not installed "
+                    + "alongside it. Reinstall Trace to restore it.",
+                ToolTipIcon.Warning);
             return;
         }
 
@@ -175,27 +184,55 @@ internal sealed class TrayIcon : IDisposable
     }
 
     /// <summary>
+    /// The per-user install location, which is where a normal installation puts
+    /// the dashboard (implementation plan §14D).
+    /// </summary>
+    private static string InstalledDashboardPath { get; } = Path.Combine(
+        Environment.GetFolderPath(
+            Environment.SpecialFolder.LocalApplicationData,
+            Environment.SpecialFolderOption.DoNotVerify),
+        "Programs",
+        "Trace",
+        "Trace.exe");
+
+    /// <summary>
     /// Finds Trace.exe.
     ///
     /// Installed, the tracker sits at <c>&lt;install&gt;\resources\tracker\</c>
-    /// and the dashboard at <c>&lt;install&gt;\Trace.exe</c>. The other paths
-    /// cover running from a build tree during development.
+    /// with the dashboard two levels up, and the first candidate finds it.
+    ///
+    /// The last candidate is the fallback that matters in practice: a tracker
+    /// running from somewhere else entirely — a build tree during development,
+    /// or a copy someone moved — has no dashboard beside it, and "Open Trace"
+    /// used to simply fail. The installed dashboard is the right thing to open
+    /// in that case, and it is the same application.
     /// </summary>
-    private static string? ResolveDashboardPath()
+    private static string? ResolveDashboardPath() =>
+        ResolveDashboardPath(
+            Path.GetDirectoryName(Environment.ProcessPath),
+            InstalledDashboardPath,
+            File.Exists);
+
+    /// <summary>
+    /// The candidate order, separated from the filesystem so it can be tested.
+    /// This shipped broken — "Open Trace" failed for any tracker not sitting in
+    /// an install directory — and it is pure path arithmetic, so there is no
+    /// excuse for it not to have a test.
+    /// </summary>
+    internal static string? ResolveDashboardPath(
+        string? trackerDirectory, string installedPath, Func<string, bool> exists)
     {
-        var directory = Path.GetDirectoryName(Environment.ProcessPath);
-        if (directory is null)
+        var candidates = new List<string>();
+
+        if (trackerDirectory is not null)
         {
-            return null;
+            candidates.Add(Path.GetFullPath(Path.Combine(trackerDirectory, "..", "..", "Trace.exe")));
+            candidates.Add(Path.GetFullPath(Path.Combine(trackerDirectory, "Trace.exe")));
         }
 
-        string[] candidates =
-        [
-            Path.Combine(directory, "..", "..", "Trace.exe"),
-            Path.Combine(directory, "Trace.exe"),
-        ];
+        candidates.Add(installedPath);
 
-        return candidates.Select(Path.GetFullPath).FirstOrDefault(File.Exists);
+        return candidates.FirstOrDefault(exists);
     }
 
     /// <summary>
