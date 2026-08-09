@@ -468,6 +468,20 @@ says short switches stay in the raw data but should not clutter the UI, and
 documented `minSessionSeconds` parameter on `activity.getTimeline`, implemented
 once in the tracker. React renders exactly what it receives.
 
+**[DECISION] Every read model applies the same merge.** Milestone 3's live run
+showed how much this matters: Alt-Tab alone produced eight sessions in nine
+seconds, most of them zero-length, including three for the `explorer.exe`
+"Task Switching" overlay. Durations are already negligible, but a naive
+**session count** would report File Explorer as one of the most-used
+applications on the machine.
+
+Filtering these at collection time was considered and rejected — a blocklist of
+shell windows would silently lose real File Explorer usage, and `Tracking.md` §F
+is explicit that raw transitions are kept. Instead `applications.list`,
+`applications.getDetail` and `activity.getDay` compute `sessionCount` from the
+same merged view as `activity.getTimeline`, so counts and durations always
+describe the same history.
+
 ### Heartbeat
 
 Every 30 s the engine writes `tracker_state` (single-row UPDATE) with the

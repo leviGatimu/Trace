@@ -2,29 +2,9 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Trace.Tracker.Diagnostics;
+using Trace.Tracker.Engine;
 
 namespace Trace.Tracker.Windows;
-
-/// <summary>
-/// What Trace knows about the application behind a window.
-/// </summary>
-/// <param name="ProcessId">The process that actually owns the visible window.</param>
-/// <param name="Executable">
-/// Normalised (lowercased) filename, e.g. <c>chrome.exe</c>. This is the
-/// application identity key — DOCS/data and database.md §4 — and the key the
-/// privacy exclusion list matches on, so an excluded app cannot slip through by
-/// being installed to a different path.
-/// </param>
-/// <param name="DisplayName">Friendly name, e.g. <c>Google Chrome</c>.</param>
-/// <param name="ExecutablePath">
-/// Full path, or null when the process could not be opened (protected or
-/// elevated). Null is recorded honestly rather than guessed.
-/// </param>
-internal sealed record ForegroundApplication(
-    uint ProcessId,
-    string Executable,
-    string DisplayName,
-    string? ExecutablePath);
 
 /// <summary>
 /// Resolves a foreground window handle to the application behind it.
@@ -56,7 +36,7 @@ internal static class ProcessIdentity
     /// Resolves the application owning <paramref name="hWnd"/>, or null when the
     /// window is gone or the process cannot be identified at all.
     /// </summary>
-    public static ForegroundApplication? Resolve(IntPtr hWnd)
+    public static TrackedApplication? Resolve(IntPtr hWnd)
     {
         if (hWnd == IntPtr.Zero || !NativeMethods.IsWindow(hWnd))
         {
@@ -89,7 +69,7 @@ internal static class ProcessIdentity
             return null;
         }
 
-        return new ForegroundApplication(
+        return new TrackedApplication(
             processId,
             executable,
             ResolveDisplayName(path, executable),

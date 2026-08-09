@@ -72,6 +72,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      The engine, the privacy gate and the repositories are all `internal` by
+      design — nothing outside this assembly may reach them. Tests are the one
+      exception, since the session rules are exactly what most needs testing.
+    -->
+    <InternalsVisibleTo Include="Trace.Tracker.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- The IPC contract is shared source, not a copy. -->
     <Compile Include="..\..\..\packages\contracts\cs\**\*.cs" LinkBase="Contracts" />
   </ItemGroup>

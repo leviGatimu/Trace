@@ -7,8 +7,8 @@ Following `DOCS/IMPLEMENTATION-PLAN.md`, which is derived from `DOCS/` and is th
 binding technical spec.
 
 ## Status
-**In progress — Milestones 1 and 2 complete and verified on real Windows.**
-Next up: Milestone 3, the session engine.
+**In progress — Milestones 1, 2 and 3 complete and verified.**
+Next up: Milestone 4, the database.
 
 ## Progress
 - [x] Read all seven product documents in `DOCS/`
@@ -20,8 +20,12 @@ Next up: Milestone 3, the session engine.
       logging. Tracker builds clean with `TreatWarningsAsErrors`.
 - [x] **Milestone 2 — tracker proof of concept**: `TraceTracker.exe --diagnose`
       verified against real Windows behaviour (see Working Notes).
-- [ ] **Milestone 3 — session engine** (next)
-- [ ] Milestone 4 — database
+- [x] **Milestone 3 — session engine**: pure state machine (`SessionEngine`,
+      `TrackerState`) behind `IActivitySink` / `IWindowResolver`. 32 xUnit tests,
+      one per rule in the `DOCS/Tracking.md` table, including the `MVP.md` §10
+      acceptance scenario. Verified live via `--diagnose`, which now drives the
+      real engine through the real signal queue and prints derived sessions.
+- [ ] **Milestone 4 — database** (next)
 - [ ] Milestone 5 — IPC
 - [ ] Milestone 6 — core UI (desktop scaffolding started: `package.json` only)
 - [ ] Milestones 7–10
@@ -52,20 +56,18 @@ Three findings, two fixed:
    `ProcessIdentity.Clean` now strips a filename-shaped description.
 2. **Fixed** — non-ASCII window titles were mojibake in diagnose output;
    `ConsoleBridge` now forces UTF-8.
-3. **OPEN, input for Milestone 3** — Alt-Tab and shell transitions surface as
-   real foreground events: `explorer.exe` with `"(no title)"` and
-   `explorer.exe "Task Switching"`, often several within one second. Windows
-   also emits **duplicate consecutive foreground events** for the same window.
-   The engine must therefore:
-     - dedupe identical consecutive states (`DOCS/data and database.md` §12) —
-       already planned;
-     - decide what to do about `"Task Switching"` and title-less `explorer.exe`
-       bursts. The documented <5 s merge rule (`DOCS/Tracking.md` §F) cleans the
-       *display*, but raw sessions would still be littered. Recommendation to
-       weigh at Milestone 3: keep recording them (raw truth is the documented
-       philosophy) and rely on the query-layer merge — do **not** add a
-       hardcoded blocklist of shell windows, which would silently lose real
-       File Explorer usage.
+3. **RESOLVED at Milestone 3** — Alt-Tab and shell transitions surface as real
+   foreground events (`explorer.exe "(no title)"`, `explorer.exe
+   "Task Switching"`), and Windows emits duplicate consecutive foreground
+   events. Measured live: **8 sessions in 9 seconds, most 0s**.
+   - Duplicate consecutive states are deduped in the engine and tested.
+   - The shell noise is **kept in raw data** per `DOCS/Tracking.md` §F, and
+     cleaned at the query layer. A collection-time blocklist was rejected: it
+     would silently lose real File Explorer usage.
+   - **Consequence to honour in Milestone 5**: every read model must apply the
+     same `minSessionSeconds` merge. Durations are negligible either way, but a
+     naive `sessionCount` would rank File Explorer among the most-used apps.
+     Recorded in plan §7.
 
 ### Key architecture already locked and implemented
 - **Tracker is the sole owner of `activity.db`**; the UI never opens the file.
@@ -97,19 +99,41 @@ Three findings, two fixed:
 - `UseWindowsForms` + implicit usings makes a bare `Timer` ambiguous — always
   write `System.Threading.Timer`.
 
+### Milestone 3 notes
+- `SessionEngine` writes only through `IActivitySink`; it holds no repository
+  and no Win32 reference. `RecordingSink` + `ScriptedScreen` + `EngineHarness`
+  in the test project let a whole scripted day run in microseconds.
+- Tests were **mutation-checked**: removing idle backdating fails 5 of 32,
+  so they have teeth rather than merely passing.
+- `TrackerHost` still runs the interim consumer — the engine cannot be wired in
+  until Milestone 4 supplies a real `IActivitySink`. It records nothing and does
+  not pretend to.
+- Still untested, because it belongs to `PrivacyGate` in Milestone 4: the
+  built-in, non-removable exclusion of `Trace.exe` / `TraceTracker.exe`
+  (`DOCS/Tracking.md` §Q).
+
 ### Exact next step on resume
-**Milestone 3 — session engine.** Build `Engine/SessionEngine.cs` and
-`Engine/TrackerState.cs` as a pure state machine consuming `Signal` and emitting
-intent (open/close session, open/close window session, append event) — with no
-database and no Windows dependency, so it can be tested directly.
+**Milestone 4 — database.** In order:
+1. `Data/Migrations/001_initial.sql` exactly as specified in plan §6, applied
+   transactionally with `schema_version`; refuse to run if the DB is newer than
+   the app.
+2. `Data/TraceDatabase.cs`: WAL, `synchronous=FULL`, `foreign_keys=ON`,
+   `busy_timeout=5000`; `integrity_check` after an unclean exit, quarantining a
+   corrupt file rather than discarding it.
+3. `Data/Repositories/*` — `internal`, and reachable **only** through
+   `Privacy/PrivacyGate.cs`, which implements `IActivitySink`. The gate is where
+   pause, exclusions, the built-in Trace exclusion, and the window-title switch
+   are enforced. A write path that bypasses it must not compile.
+4. `Settings/SettingsStore.cs` over `settings.json`, including persisted pause
+   state (`DOCS/Privacy.md` §27).
+5. Crash recovery on startup: close any `ended_at IS NULL` session at
+   `tracker_state.last_heartbeat` with `CRASH_RECOVERY`, plus `TRACKER_RECOVERED`.
+6. Wire `SessionEngine` into `TrackerHost` and replace the interim consumer.
 
-Turn every row of the `DOCS/Tracking.md` §"MVP rules" table into a named xUnit
-test. Must include: idle backdating; idle attributed to the outgoing app on a
-switch; duplicate foreground signals producing no rows; `active + idle` never
-exceeding wall-clock; unlock/resume choosing the *current* foreground app rather
-than assuming the previous one.
+Tests to add: gate produces zero rows across **all five tables** for an excluded
+app; migrations apply 001→N and preserve seeded data; recovery closes at the
+heartbeat, not at start-up time.
 
-Create `apps/tracker/Trace.Tracker.Tests` (xUnit) as part of this milestone.
 Do **not** start UI pages before Milestone 5 (IPC) can serve real data.
 
 ## Recently Completed
