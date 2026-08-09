@@ -29,6 +29,27 @@ internal interface IWindowResolver
 internal readonly record struct OpenedSession(long SessionId, long ApplicationId);
 
 /// <summary>
+/// What the tracker is recording at this instant, published as one immutable
+/// object so readers on other threads see a consistent picture.
+/// </summary>
+/// <param name="AsOfUtcMs">
+/// When the counters below were correct. A reader extends whichever of them is
+/// currently running to the present, so the live timer ticks smoothly between
+/// transitions instead of freezing until the next heartbeat.
+/// </param>
+internal sealed record CurrentActivitySnapshot(
+    long SessionId,
+    long ApplicationId,
+    string ApplicationName,
+    string Executable,
+    string? WindowTitle,
+    long StartedAt,
+    long AsOfUtcMs,
+    int ActiveSeconds,
+    int IdleSeconds,
+    TrackingState State);
+
+/// <summary>
 /// The engine's only route to storage.
 ///
 /// In production this is <c>PrivacyGate</c>, which owns the repositories

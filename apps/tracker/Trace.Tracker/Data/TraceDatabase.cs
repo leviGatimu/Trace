@@ -21,7 +21,8 @@ internal sealed class TraceDatabaseException(string message, Exception? inner = 
 /// </summary>
 internal sealed class TraceDatabase : IDisposable
 {
-    private const int CurrentSchemaVersion = 1;
+    /// <summary>The schema this build understands. Reported to the UI in <c>system.hello</c>.</summary>
+    public const int CurrentSchemaVersion = 1;
 
     private readonly string _path;
     private readonly Lock _writeGate = new();

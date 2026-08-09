@@ -29,6 +29,13 @@ internal static class Program
             return DumpCommand.Run();
         }
 
+        // --probe is an IPC client: it runs alongside the tracker it is probing,
+        // so it takes neither the single-instance mutex nor the log file.
+        if (mode.Kind == LaunchKind.Probe)
+        {
+            return ProbeCommand.Run();
+        }
+
         Log.Initialise();
 
         // Single instance. Two trackers writing one SQLite file would be the
@@ -95,6 +102,7 @@ internal enum LaunchKind
     Normal,
     Diagnose,
     Dump,
+    Probe,
 }
 
 /// <summary>Command-line surface. Kept tiny on purpose — this is a background service, not a CLI.</summary>
@@ -110,6 +118,8 @@ internal sealed record LaunchMode(LaunchKind Kind, bool ShowHelp)
                     return new LaunchMode(LaunchKind.Diagnose, false);
                 case "--dump":
                     return new LaunchMode(LaunchKind.Dump, false);
+                case "--probe":
+                    return new LaunchMode(LaunchKind.Probe, false);
                 case "--help":
                 case "-h":
                 case "/?":

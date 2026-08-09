@@ -93,6 +93,7 @@ internal static partial class ConsoleBridge
         WriteLine("  TraceTracker.exe               Run normally (tray + tracking).");
         WriteLine("  TraceTracker.exe --diagnose    Print live Windows state; writes nothing.");
         WriteLine("  TraceTracker.exe --dump        Print the recorded history; read-only.");
+        WriteLine("  TraceTracker.exe --probe       Exercise the IPC contract against a running tracker.");
         WriteLine("  TraceTracker.exe --help        This message.");
         WriteLine();
         WriteLine($"  Data:     {TracePaths.DataDirectory}");

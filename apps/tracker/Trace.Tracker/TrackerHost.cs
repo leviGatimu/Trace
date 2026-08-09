@@ -2,7 +2,9 @@ using System.Windows.Forms;
 using Trace.Contracts;
 using Trace.Tracker.Data;
 using Trace.Tracker.Diagnostics;
+using Trace.Tracker.Data.Queries;
 using Trace.Tracker.Engine;
+using Trace.Tracker.Ipc;
 using Trace.Tracker.Privacy;
 using Trace.Tracker.Settings;
 using Trace.Tracker.Windows;
@@ -28,6 +30,7 @@ internal static class TrackerHost
     private static readonly Lock ShutdownGate = new();
 
     private static SignalQueue? _queue;
+    private static PipeServer? _ipc;
     private static SessionEngine? _engine;
     private static TraceDatabase? _database;
     private static SettingsStore? _settings;
@@ -117,8 +120,31 @@ internal static class TrackerHost
             RetentionSweepInterval,
             RetentionSweepInterval);
 
-        // TODO(Milestone 5): start the named-pipe server over `database`,
-        // `settings`, `engine` and `gate`.
+        var startedAt = clock.UtcNowMs;
+        var services = new TrackerServices(
+            engine,
+            gate,
+            settings,
+            new ActivityQueries(database),
+            new SearchQueries(database),
+            new DataOperations(database),
+            clock,
+            queue.Post,
+            () => TrackerVersion.Value,
+            () => TraceDatabase.CurrentSchemaVersion,
+            () => startedAt);
+
+        var ipc = new PipeServer(new RequestRouter(services));
+        _ipc = ipc;
+        ipc.Start();
+
+        // The dashboard re-queries rather than mutating its own state from a
+        // push, so an event only needs to say what became stale.
+        settings.Changed += updated => ipc.Broadcast(
+            PushEvents.SettingsChanged, new { trackingEnabled = updated.TrackingEnabled });
+        gate.Degraded += _ => ipc.Broadcast(
+            PushEvents.StateChanged, new { state = nameof(TrackingState.DEGRADED) });
+
         // TODO(Milestone 8): create the tray icon.
 
         Log.Info(
@@ -199,6 +225,10 @@ internal static class TrackerHost
 
         try
         {
+            // Stop answering before stopping recording, so a client is never
+            // served a half-shut-down view of the world.
+            _ipc?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+
             _idleWatcher?.Dispose();
             _foregroundWatcher?.Dispose();
 

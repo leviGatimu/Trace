@@ -218,11 +218,19 @@ public sealed record HourBucket(long StartUtcMs, int ActiveSeconds);
 public sealed record TimelineQuery(long FromUtcMs, long ToUtcMs, int? MinSessionSeconds);
 
 /// <summary>
-/// Discriminated by <c>Kind</c>: "session" or "system". System intervals
+/// Discriminated by <c>kind</c>: "session" or "system". System intervals
 /// (locked / asleep / paused) are derived from the events table; they are not
 /// stored as sessions.
+///
+/// The discriminator is emitted by the serializer rather than declared as a
+/// property. Without the polymorphic attributes, a list typed as the base would
+/// serialise every element as the base — the UI would receive rows with nothing
+/// in them but a kind.
 /// </summary>
-public abstract record TimelineEntry(string Kind);
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(TimelineSessionEntry), typeDiscriminator: "session")]
+[JsonDerivedType(typeof(TimelineSystemEntry), typeDiscriminator: "system")]
+public abstract record TimelineEntry;
 
 public sealed record TimelineSessionEntry(
     long SessionId,
@@ -236,12 +244,12 @@ public sealed record TimelineSessionEntry(
     int ActiveSeconds,
     int IdleSeconds,
     EndReason? EndReason,
-    bool Merged) : TimelineEntry("session");
+    bool Merged) : TimelineEntry;
 
 public sealed record TimelineSystemEntry(
     string Interval,
     long StartedAt,
-    long? EndedAt) : TimelineEntry("system");
+    long? EndedAt) : TimelineEntry;
 
 // ---------------------------------------------------------------------------
 // applications

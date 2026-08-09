@@ -7,9 +7,9 @@ Following `DOCS/IMPLEMENTATION-PLAN.md`, which is derived from `DOCS/` and is th
 binding technical spec.
 
 ## Status
-**In progress — Milestones 1–4 complete and verified.**
-The tracker now records real activity to a real database on this machine.
-Next up: Milestone 5, IPC.
+**In progress — Milestones 1–5 complete and verified.**
+The tracker records real activity and serves it over a named pipe.
+Next up: Milestone 6, the core UI — the first milestone with any React in it.
 
 ## Progress
 - [x] Documentation audit; `DOCS/IMPLEMENTATION-PLAN.md`; 5 decisions resolved
@@ -22,8 +22,10 @@ Next up: Milestone 5, IPC.
       Engine wired into `TrackerHost`. **54 tests pass.** Verified end to end on
       this machine: recorded real activity, killed the process, restarted, and
       watched it recover the interrupted session at the last heartbeat.
-- [ ] **Milestone 5 — IPC** (next)
-- [ ] Milestone 6 — core UI (desktop scaffolding: `package.json` only so far)
+- [x] **Milestone 5 — IPC**: named pipe with per-user DACL, NDJSON framing,
+      all 17 contract methods, read models through `SessionMerger`, search,
+      export, deletes. **74 tests.** Verified over a live pipe with `--probe`.
+- [ ] **Milestone 6 — core UI** (next; desktop scaffolding is `package.json` only)
 - [ ] Milestones 7–10
 
 ## Working Notes
@@ -38,9 +40,10 @@ Next up: Milestone 5, IPC.
 
 ### How to run it today
 ```
-TraceTracker.exe              # record (no tray or quit yet - Milestone 8)
+TraceTracker.exe              # record + serve IPC (no tray or quit yet - Milestone 8)
 TraceTracker.exe --diagnose   # live Win32 + engine trace, writes nothing
 TraceTracker.exe --dump       # print the recorded history, read-only
+TraceTracker.exe --probe      # exercise the IPC contract against a running tracker
 TraceTracker.exe --help
 ```
 Data lives in `%LOCALAPPDATA%\Trace`. There is real activity data there from
@@ -81,6 +84,16 @@ development testing; delete `Data\activity.db*` to start clean.
    most-used apps.
 4. **Published tracker is 136 MB** (self-contained, WinForms + full BCL). Fine
    for now; revisit at Milestone 8 — trimming is the first thing to try.
+5. **Coalescing bridged a gap — fixed (Milestone 5).** Two stretches of the same
+   application from two different runs of Trace, an hour apart, merged into one
+   timeline row spanning time nothing was recorded for. `SessionMerger` now
+   refuses to coalesce across a gap: sessions are contiguous by construction, so
+   any real gap means Trace was not running.
+6. **`E_INTERNAL` hides the cause by design**, and tests do not initialise `Log`.
+   Debugging a failing handler in a test means reading the SQL, not a message —
+   it cost one round-trip on a compound-`SELECT` syntax error. Acceptable
+   (leaking exception text to a client could leak a window title), but worth
+   knowing before Milestone 6 adds more query surface.
 
 ### Build notes worth keeping
 - TFM `net10.0-windows10.0.17763.0`; `AllowUnsafeBlocks` required by
@@ -92,23 +105,42 @@ development testing; delete `Data\activity.db*` to start clean.
 - PowerShell 5.1 mangles native-command arguments containing double quotes. Use
   `git commit -F <file>` for commit messages.
 
-### Exact next step on resume
-**Milestone 5 — IPC.** In order:
-1. `Ipc/PipeServer.cs`: `\\.\pipe\Trace.<SID>`, `PipeSecurity` granting only the
-   current user SID and SYSTEM, `FILE_FLAG_FIRST_PIPE_INSTANCE` so a squatter
-   causes a loud failure rather than silent impersonation. NDJSON framing, 8 MiB
-   frame cap.
-2. `Ipc/RequestRouter.cs` + one handler per method in
-   `packages/contracts/ipc-contract.md` §5.
-3. `Data/Queries/*` — read models shaped exactly as the contract returns them.
-   **Every one must apply the same `minSessionSeconds` merge**, including
-   `sessionCount` (finding 3 above).
-4. `ContractSurfaceTests`: assert the router's registered methods equal
-   `IpcMethods.All`, so the two sides of the contract cannot drift.
-5. Add a `--probe` client command to exercise every method against a real
-   database, the way `--dump` verifies the write path.
+### Milestone 5 notes
+- `RequestRouter` takes a string and returns a string — no transport in it — so
+  the whole contract is testable without a pipe or a running tracker.
+- `SessionEngine.Current` publishes an immutable snapshot including `AsOfUtcMs`.
+  IPC threads must read that, never `TrackerState`, which only the queue
+  consumer may touch. The handler extends whichever counter is running up to
+  now, so the live timer ticks smoothly between transitions.
+- `TimelineEntry` needs `[JsonPolymorphic]`; without it a `List<TimelineEntry>`
+  serialises every element as the base type and the UI gets rows containing
+  nothing but a discriminator.
+- Pause/resume writes the setting **before** posting the signal, in both
+  directions. On pause the gate refuses new records from the instant of the
+  click; on resume it is already open when the engine starts a session.
 
-Do **not** start UI pages before the IPC layer returns real data.
+### Exact next step on resume
+**Milestone 6 — core UI.** The first React. Build against the real tracker from
+the first screen; mock data only for states the tracker cannot produce on demand
+(empty history, tracker unavailable).
+
+1. `apps/desktop`: Vite + Electron main/preload/renderer, `npm install`.
+   The renderer gets no Node access — everything crosses `contextBridge`.
+2. `electron/main/tracker-client.ts`: NDJSON client over
+   `\\.\pipe\Trace.<SID>`. The SID is obtainable via `whoami /user /fo csv /nh`.
+   Reconnect with backoff 0.5s → 10s; surface the documented
+   "Tracker unavailable / [Restart Tracker]" state rather than stale data.
+3. `system.hello` first on every connection; refuse a contract-version mismatch
+   with an explicit "Trace needs updating" screen.
+4. Shell + five nav items (Overview · Timeline · Applications · Search —
+   Settings) using the palette in `DOCS/UI and UX-design.md`.
+5. Pages in this order: Overview, Timeline, Applications, Search. Settings is
+   Milestone 7 (it is mostly privacy controls).
+6. Live Activity in the sidebar off `activity.getCurrent`, polled ~1s.
+
+The UI formats and never derives: every duration, count and bucket already
+arrives computed. If a screen needs a number the contract does not return, add
+it to the contract rather than calculating it in React.
 
 ## Recently Completed
 - Milestone 4 — database, privacy gate, settings, crash recovery (2026-08-09).

@@ -62,6 +62,49 @@ internal sealed class SessionEngine
     public long SessionStartedAtUtcMs => _state.SessionStartedAtUtcMs;
 
     /// <summary>
+    /// An immutable view of what is happening right now, for readers on other
+    /// threads.
+    ///
+    /// <see cref="TrackerState"/> is mutated only by the queue consumer and is
+    /// not safe to read concurrently. IPC handlers answering "what am I doing
+    /// right now?" read this instead: a whole reference published at once, so a
+    /// caller can never observe an application from one session with the
+    /// timings of another.
+    /// </summary>
+    public CurrentActivitySnapshot? Current => _current;
+
+    private volatile CurrentActivitySnapshot? _current;
+
+    /// <summary>
+    /// Republishes <see cref="Current"/>. Called after anything that changes
+    /// what the user would consider "now".
+    /// </summary>
+    private void PublishCurrent(long atUtcMs)
+    {
+        if (_state.CurrentSessionId is not { } sessionId
+            || _state.CurrentApplicationId is not { } applicationId
+            || _state.CurrentApplication is not { } application)
+        {
+            _current = null;
+            return;
+        }
+
+        var (activeSeconds, idleSeconds) = _state.PeekAccounting(atUtcMs);
+
+        _current = new CurrentActivitySnapshot(
+            sessionId,
+            applicationId,
+            application.DisplayName,
+            application.Executable,
+            _state.CurrentWindowTitle,
+            _state.SessionStartedAtUtcMs,
+            atUtcMs,
+            activeSeconds,
+            idleSeconds,
+            _state.State);
+    }
+
+    /// <summary>
     /// Whether activity is being recorded. LOCKED, SUSPENDED and PAUSED all hold
     /// no session and drop every activity signal.
     /// </summary>
@@ -90,6 +133,7 @@ internal sealed class SessionEngine
         _state.State = TrackingState.ACTIVE;
         AdoptForeground(atUtcMs);
         _sink.Checkpoint(_state.Snapshot(atUtcMs));
+        PublishCurrent(atUtcMs);
     }
 
     /// <summary>Closes the open session for a deliberate stop (quit, shutdown).</summary>
@@ -97,9 +141,19 @@ internal sealed class SessionEngine
     {
         CloseCurrentSession(atUtcMs, reason);
         _sink.Checkpoint(_state.Snapshot(atUtcMs));
+        PublishCurrent(atUtcMs);
     }
 
     public void Handle(Signal signal)
+    {
+        Dispatch(signal);
+
+        // One place to republish, rather than at the end of a dozen transitions
+        // where the next one added would forget.
+        PublishCurrent(signal.AtUtcMs);
+    }
+
+    private void Dispatch(Signal signal)
     {
         switch (signal)
         {
