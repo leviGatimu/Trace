@@ -59,6 +59,7 @@ internal sealed class SettingsStore
         ClockFormat: ClockFormat.SYSTEM,
         Theme: ThemePreference.DARK,
         DeveloperLogging: false,
+        BackgroundNoticeShown: false,
         DataDirectory: TracePaths.DataDirectory,
         OnboardingCompleted: false);
 

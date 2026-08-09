@@ -51,6 +51,13 @@ internal sealed class PipeServer : IAsyncDisposable
         return ContractInfo.PipeNamePrefix + sid;
     }
 
+    /// <summary>
+    /// Raised when a client that had been connected goes away — in practice,
+    /// the dashboard being closed. The tracker uses it to reassure the user,
+    /// once, that closing the window did not stop the recording.
+    /// </summary>
+    public event Action? ClientDisconnected;
+
     public void Start()
     {
         _acceptLoop = Task.Run(() => AcceptLoopAsync(_shutdown.Token));
@@ -182,12 +189,22 @@ internal sealed class PipeServer : IAsyncDisposable
         }
         finally
         {
+            bool wasLast;
+
             lock (_connectionsGate)
             {
                 _connections.Remove(connection);
+                wasLast = _connections.Count == 0;
             }
 
             await connection.DisposeAsync();
+
+            // Only when nothing is connected any more: a dashboard reconnecting
+            // after a dropped pipe should not read as "the user closed it".
+            if (wasLast && !cancellationToken.IsCancellationRequested)
+            {
+                ClientDisconnected?.Invoke();
+            }
         }
     }
 

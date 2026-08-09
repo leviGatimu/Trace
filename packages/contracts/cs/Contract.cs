@@ -392,6 +392,7 @@ public sealed record Settings(
     ClockFormat ClockFormat,
     ThemePreference Theme,
     bool DeveloperLogging,
+    bool BackgroundNoticeShown,
     string DataDirectory,
     bool OnboardingCompleted);
 

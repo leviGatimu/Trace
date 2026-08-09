@@ -415,6 +415,12 @@ export interface Settings {
   /** Enables Debug-level logging. Off by default: Debug may log window titles. */
   developerLogging: boolean;
 
+  /**
+   * Whether the user has been told that closing the window does not stop
+   * recording. Shown once, from the tray, the first time the dashboard closes.
+   */
+  backgroundNoticeShown: boolean;
+
   // Read-only, reported by the tracker
   readonly dataDirectory: string;
   readonly onboardingCompleted: boolean;

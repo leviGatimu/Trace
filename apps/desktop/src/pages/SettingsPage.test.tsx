@@ -16,6 +16,7 @@ const SETTINGS: Settings = {
   clockFormat: 'TWENTY_FOUR_HOUR',
   theme: 'DARK',
   developerLogging: false,
+  backgroundNoticeShown: true,
   dataDirectory: 'C:\\Users\\test\\AppData\\Local\\Trace\\Data',
   onboardingCompleted: true,
 };

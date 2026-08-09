@@ -185,6 +185,20 @@ internal static class TrackerHost
         // with what Trace is actually doing.
         settings.Changed += updated => tray.Update(engine.State, updated.TrackingEnabled);
 
+        // The first time the dashboard closes, explain that recording continues.
+        // Once, ever — after that the user knows, and a recurring popup from a
+        // background application is its own kind of rude.
+        ipc.ClientDisconnected += () =>
+        {
+            if (settings.Current.BackgroundNoticeShown)
+            {
+                return;
+            }
+
+            settings.Update(current => current with { BackgroundNoticeShown = true });
+            tray.ShowBackgroundNotice();
+        };
+
         using var trayRefresh = new System.Threading.Timer(
             _ => tray.Update(engine.State, settings.Current.TrackingEnabled),
             null,

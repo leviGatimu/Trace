@@ -228,6 +228,7 @@ internal sealed class RequestRouter
             ClockFormat = patch.ClockFormat ?? current.ClockFormat,
             Theme = patch.Theme ?? current.Theme,
             DeveloperLogging = patch.DeveloperLogging ?? current.DeveloperLogging,
+            BackgroundNoticeShown = patch.BackgroundNoticeShown ?? current.BackgroundNoticeShown,
             OnboardingCompleted = patch.OnboardingCompleted ?? current.OnboardingCompleted,
         });
     }
@@ -367,4 +368,5 @@ internal sealed record SettingsPatch(
     ClockFormat? ClockFormat,
     ThemePreference? Theme,
     bool? DeveloperLogging,
+    bool? BackgroundNoticeShown,
     bool? OnboardingCompleted);

@@ -108,6 +108,29 @@ internal sealed class TrayIcon : IDisposable
         _pauseResume.Text = trackingEnabled ? "Pause Tracking" : "Resume Tracking";
     }
 
+    /// <summary>
+    /// Says, once, that closing the window did not stop the recording.
+    ///
+    /// Windows 11 puts new tray icons in the hidden overflow, so from the
+    /// user's side closing the dashboard is indistinguishable from quitting —
+    /// the window disappears and there is nothing left to see. A product that
+    /// keeps recording after you close it has an obligation to say so.
+    /// </summary>
+    public void ShowBackgroundNotice()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _icon.ShowBalloonTip(
+            8000,
+            "Trace is still recording",
+            "Closing the window does not stop tracking. Trace runs here in the notification area — "
+                + "open it, pause it, or quit from this icon.",
+            ToolTipIcon.None);
+    }
+
     private void TogglePause()
     {
         if (_isPaused)
