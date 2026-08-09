@@ -7,9 +7,9 @@ Following `DOCS/IMPLEMENTATION-PLAN.md`, which is derived from `DOCS/` and is th
 binding technical spec.
 
 ## Status
-**In progress — Milestones 1–5 complete and verified.**
-The tracker records real activity and serves it over a named pipe.
-Next up: Milestone 6, the core UI — the first milestone with any React in it.
+**In progress — Milestones 1–6 complete and verified.**
+Trace now runs end to end: tracker records → pipe → dashboard renders.
+Next up: Milestone 7, privacy controls (Settings, exclusions, delete, export).
 
 ## Progress
 - [x] Documentation audit; `DOCS/IMPLEMENTATION-PLAN.md`; 5 decisions resolved
@@ -25,8 +25,12 @@ Next up: Milestone 6, the core UI — the first milestone with any React in it.
 - [x] **Milestone 5 — IPC**: named pipe with per-user DACL, NDJSON framing,
       all 17 contract methods, read models through `SessionMerger`, search,
       export, deletes. **74 tests.** Verified over a live pipe with `--probe`.
-- [ ] **Milestone 6 — core UI** (next; desktop scaffolding is `package.json` only)
-- [ ] Milestones 7–10
+- [x] **Milestone 6 — core UI**: Electron + React + TypeScript + Tailwind 4.
+      Pipe client with reconnect, shell, Overview, Timeline, Applications
+      (+ detail), Search, session detail panel, live activity. **13 UI tests**
+      (87 across the repo). Runs against the real tracker.
+- [ ] **Milestone 7 — privacy controls** (next)
+- [ ] Milestones 8–10
 
 ## Working Notes
 
@@ -45,7 +49,12 @@ TraceTracker.exe --diagnose   # live Win32 + engine trace, writes nothing
 TraceTracker.exe --dump       # print the recorded history, read-only
 TraceTracker.exe --probe      # exercise the IPC contract against a running tracker
 TraceTracker.exe --help
+
+cd apps/desktop && npm run dev     # dashboard against the running tracker
+cd apps/desktop && npm run build   # dist/ (renderer) + dist-electron/ (main, preload)
 ```
+Start the tracker first; without it the dashboard shows its "Tracker
+unavailable / Restart Tracker" state, which is worth seeing at least once.
 Data lives in `%LOCALAPPDATA%\Trace`. There is real activity data there from
 development testing; delete `Data\activity.db*` to start clean.
 
@@ -119,28 +128,46 @@ development testing; delete `Data\activity.db*` to start clean.
   directions. On pause the gate refuses new records from the instant of the
   click; on resume it is already open when the engine starts a session.
 
+### Milestone 6 notes
+- **Build**: Vite for the renderer, esbuild for main + preload (`scripts/
+  build.mjs`, `scripts/dev.mjs`). No Electron/Vite plugin — two entry points and
+  one platform did not justify another dependency between us and the tools.
+  Editing main/preload needs a restart; renderer hot-reloads.
+- **Main and preload are CommonJS**, so `import.meta.url` is empty there —
+  use `__dirname`. Getting this wrong resolves preload and `index.html` to the
+  wrong place and the window comes up blank with no error.
+- **CSP** is strict in `index.html` and relaxed by a Vite plugin for `dev` only.
+- **Renderer has no Node.** `contextIsolation: true`, `nodeIntegration: false`;
+  the whole surface is five methods in `electron/preload.ts`.
+- **`QueryClient` is created per App mount**, not at module scope — otherwise
+  one test sees another's cache (it silently broke two tests and made the suite
+  4× slower).
+- **Testing Library's 1s default timeout is too short here**; raised to 5s in
+  `src/test/vitest.setup.ts`.
+- The global CLAUDE.md asks for UI components from the Magic MCP server first.
+  Those tools are not available in this environment, so components are
+  hand-written to the palette and layout in `DOCS/UI and UX-design.md`.
+
 ### Exact next step on resume
-**Milestone 6 — core UI.** The first React. Build against the real tracker from
-the first screen; mock data only for states the tracker cannot produce on demand
-(empty history, tracker unavailable).
+**Milestone 7 — privacy controls.** The settings surface is the product's
+privacy centre (`DOCS/Privacy.md` §25), not a checkbox page.
 
-1. `apps/desktop`: Vite + Electron main/preload/renderer, `npm install`.
-   The renderer gets no Node access — everything crosses `contextBridge`.
-2. `electron/main/tracker-client.ts`: NDJSON client over
-   `\\.\pipe\Trace.<SID>`. The SID is obtainable via `whoami /user /fo csv /nh`.
-   Reconnect with backoff 0.5s → 10s; surface the documented
-   "Tracker unavailable / [Restart Tracker]" state rather than stale data.
-3. `system.hello` first on every connection; refuse a contract-version mismatch
-   with an explicit "Trace needs updating" screen.
-4. Shell + five nav items (Overview · Timeline · Applications · Search —
-   Settings) using the palette in `DOCS/UI and UX-design.md`.
-5. Pages in this order: Overview, Timeline, Applications, Search. Settings is
-   Milestone 7 (it is mostly privacy controls).
-6. Live Activity in the sidebar off `activity.getCurrent`, polled ~1s.
-
-The UI formats and never derives: every duration, count and bucket already
-arrives computed. If a screen needs a number the contract does not return, add
-it to the contract rather than calculating it in React.
+1. Settings page (fifth nav item, below the separator): Tracking, Activity
+   collected, Window titles, Excluded applications, Your data, Data location.
+2. Pause/resume from the UI via `tracking.pause` / `tracking.resume` — already
+   wired in the contract and tested; needs the control.
+3. Excluded applications: add/remove, and the "also delete existing history for
+   this application" choice (`DOCS/Privacy.md` §8) → `data.deleteApplication`.
+4. Delete: date range and delete-everything, with the literal confirmation the
+   contract requires.
+5. Export: a save dialog in the main process, then `data.export` with an
+   absolute path.
+6. Onboarding (`DOCS/Privacy.md` §26): the privacy explanation and collection
+   choices, gated on `settings.onboardingCompleted`. Frame it as **consent**,
+   not a permission request — nothing here needs a Windows permission
+   (plan §13.4).
+7. Verify by inspection *and* by dump: exclude an application, use it, and
+   confirm `--dump` shows nothing for it.
 
 ## Recently Completed
 - Milestone 4 — database, privacy gate, settings, crash recovery (2026-08-09).

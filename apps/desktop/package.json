@@ -3,14 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "description": "Trace.exe — the Trace desktop interface.",
-  "main": "dist-electron/main/main.js",
+  "main": "dist-electron/main.cjs",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "dev": "node scripts/dev.mjs",
+    "build": "npm run typecheck && node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest",
     "package": "npm run build && electron-builder --win --publish never"
   },
   "dependencies": {
@@ -29,11 +28,11 @@
     "@vitejs/plugin-react": "^6.0.5",
     "electron": "^43.3.0",
     "electron-builder": "^26.15.3",
+    "esbuild": "^0.25.0",
     "jsdom": "^26.1.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.0",
     "vite": "^8.2.1",
-    "vite-plugin-electron": "^0.29.0",
     "vitest": "^4.1.10"
   }
 }
