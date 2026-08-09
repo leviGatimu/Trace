@@ -7,9 +7,10 @@ Following `DOCS/IMPLEMENTATION-PLAN.md`, which is derived from `DOCS/` and is th
 binding technical spec.
 
 ## Status
-**In progress — Milestones 1–6 complete and verified.**
-Trace now runs end to end: tracker records → pipe → dashboard renders.
-Next up: Milestone 7, privacy controls (Settings, exclusions, delete, export).
+**In progress — Milestones 1–7 complete and verified.**
+Trace runs end to end with working privacy controls. Exclusion verified
+empirically: an excluded application used for 18 seconds left no row anywhere.
+Next up: Milestone 8, Windows integration (tray, installer, uninstall).
 
 ## Progress
 - [x] Documentation audit; `DOCS/IMPLEMENTATION-PLAN.md`; 5 decisions resolved
@@ -29,8 +30,14 @@ Next up: Milestone 7, privacy controls (Settings, exclusions, delete, export).
       Pipe client with reconnect, shell, Overview, Timeline, Applications
       (+ detail), Search, session detail panel, live activity. **13 UI tests**
       (87 across the repo). Runs against the real tracker.
-- [ ] **Milestone 7 — privacy controls** (next)
-- [ ] Milestones 8–10
+- [x] **Milestone 7 — privacy controls**: Settings as a privacy centre,
+      pause/resume, exclusions (+ delete that app's history), window-title and
+      idle toggles, retention, export via save dialog, delete range /
+      delete-everything behind a typed confirmation, onboarding consent flow,
+      and a real `HKCU\...\Run` startup registration. **95 tests** (74 tracker,
+      21 UI).
+- [ ] **Milestone 8 — Windows integration** (next)
+- [ ] Milestones 9–10
 
 ## Working Notes
 
@@ -148,26 +155,46 @@ development testing; delete `Data\activity.db*` to start clean.
   Those tools are not available in this environment, so components are
   hand-written to the palette and layout in `DOCS/UI and UX-design.md`.
 
-### Exact next step on resume
-**Milestone 7 — privacy controls.** The settings surface is the product's
-privacy centre (`DOCS/Privacy.md` §25), not a checkbox page.
+### Milestone 7 notes
+- **Exclusion verified empirically, not just by test**: `notepad.exe` excluded,
+  Notepad used for 18 s, `--dump` shows no application, no session, no title —
+  just an honest 2-second gap in the timeline where it was.
+- **Start-with-Windows is real**, not a stored preference: `HKCU\Software\
+  Microsoft\Windows\CurrentVersion\Run`, verified written and removed.
+  The **setting is the authority** at startup, not the registry — the first
+  attempt had the registry win, which silently undid the user enabling it.
+  Task Manager's Startup tab disables via its own `StartupApproved` key rather
+  than by deleting this value, so that choice still stands.
+- **Onboarding is framed as consent, not permission.** `DOCS/MVP.md` §9 sketches
+  "Trace needs access to…", but nothing here needs a Windows permission or a UAC
+  prompt, so asking would misdescribe what is happening (plan §13.4). A test
+  asserts the phrase "needs access" does not appear.
+- **Only controls that work are shown.** `theme` and `launchMinimised` exist in
+  the settings contract but have no implementation, so they are deliberately
+  absent from the page — a toggle that does nothing is worse than no toggle.
+  Both belong to Milestone 10.
+- `settings.json` is only written on first save, so a fresh install has no file
+  until something changes. Worth remembering when scripting a test.
 
-1. Settings page (fifth nav item, below the separator): Tracking, Activity
-   collected, Window titles, Excluded applications, Your data, Data location.
-2. Pause/resume from the UI via `tracking.pause` / `tracking.resume` — already
-   wired in the contract and tested; needs the control.
-3. Excluded applications: add/remove, and the "also delete existing history for
-   this application" choice (`DOCS/Privacy.md` §8) → `data.deleteApplication`.
-4. Delete: date range and delete-everything, with the literal confirmation the
-   contract requires.
-5. Export: a save dialog in the main process, then `data.export` with an
-   absolute path.
-6. Onboarding (`DOCS/Privacy.md` §26): the privacy explanation and collection
-   choices, gated on `settings.onboardingCompleted`. Frame it as **consent**,
-   not a permission request — nothing here needs a Windows permission
-   (plan §13.4).
-7. Verify by inspection *and* by dump: exclude an application, use it, and
-   confirm `--dump` shows nothing for it.
+### Exact next step on resume
+**Milestone 8 — Windows integration.** The milestone that turns this into
+something someone can install.
+
+1. **Tray icon, owned by the tracker** (plan §10): status line, Open Trace,
+   Pause/Resume, Today's Activity, Settings, Quit Trace. `NotifyIcon` on the
+   existing message pump. Pause from the tray must go through the same path as
+   the dashboard's.
+2. **Quit vs Close**: closing the window already quits `Trace.exe` only; the
+   tray's Quit must stop the tracker, closing the open session cleanly.
+3. **Installer**: `electron-builder` NSIS, `perMachine: false`,
+   `extraResources` carrying `TraceTracker.exe` into `resources/tracker/`.
+   Per-user install to `%LOCALAPPDATA%\Programs\Trace` (decision D).
+4. **Uninstall data choice** (`DOCS/Privacy.md` §23): Keep / Export / Delete,
+   as a custom NSIS page. Stop the tracker first.
+5. **Installer size**: the tracker publishes at 136 MB self-contained. Try
+   trimming first and verify SQLitePCLRaw still resolves its provider.
+6. Verify: clean install → reboot → tracking running → open from tray →
+   uninstall with each of the three data choices.
 
 ## Recently Completed
 - Milestone 4 — database, privacy gate, settings, crash recovery (2026-08-09).

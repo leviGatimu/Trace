@@ -20,6 +20,16 @@ const api = {
     return ipcRenderer.invoke('trace:restart-tracker');
   },
 
+  /** Opens a save dialog. Returns the chosen path, or null if cancelled. */
+  chooseExportPath(): Promise<string | null> {
+    return ipcRenderer.invoke('trace:choose-export-path');
+  },
+
+  /** Opens a folder in Explorer. Used only for the data location in Settings. */
+  openFolder(folder: string): Promise<string> {
+    return ipcRenderer.invoke('trace:open-folder', folder);
+  },
+
   onConnectionState(handler: (state: unknown) => void) {
     const listener = (_event: unknown, state: unknown) => handler(state);
     ipcRenderer.on('trace:state', listener);

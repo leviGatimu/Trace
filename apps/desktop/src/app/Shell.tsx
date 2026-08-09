@@ -45,32 +45,41 @@ function Sidebar() {
 
       <div className="flex-1 px-3">
         {NAV.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) =>
-              [
-                'relative mb-0.5 block rounded-[5px] px-3 py-[7px] transition-colors duration-150',
-                isActive ? 'bg-card text-ink' : 'text-ink-dim hover:bg-card/60 hover:text-ink',
-              ].join(' ')
-            }
-          >
-            {({ isActive }) => (
-              <>
-                {/* A quiet marker on the active item rather than a filled block. */}
-                {isActive && (
-                  <span className="absolute inset-y-[7px] left-0 w-[2px] rounded-full bg-accent" />
-                )}
-                {item.label}
-              </>
-            )}
-          </NavLink>
+          <NavItem key={item.to} to={item.to} end={item.end} label={item.label} />
         ))}
+
+        {/* Settings sits below a separator, as DOCS/MVP.md §6 lays out. */}
+        <div className="my-2 border-t border-line" />
+        <NavItem to="/settings" end={false} label="Settings" />
       </div>
 
       <LiveActivity />
     </nav>
+  );
+}
+
+function NavItem({ to, end, label }: { to: string; end: boolean; label: string }) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) =>
+        [
+          'relative mb-0.5 block rounded-[5px] px-3 py-[7px] transition-colors duration-150',
+          isActive ? 'bg-card text-ink' : 'text-ink-dim hover:bg-card/60 hover:text-ink',
+        ].join(' ')
+      }
+    >
+      {({ isActive }) => (
+        <>
+          {/* A quiet marker on the active item rather than a filled block. */}
+          {isActive && (
+            <span className="absolute inset-y-[7px] left-0 w-[2px] rounded-full bg-accent" />
+          )}
+          {label}
+        </>
+      )}
+    </NavLink>
   );
 }
 

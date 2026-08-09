@@ -99,8 +99,33 @@ internal static class TrackerHost
         settings.Changed += updated =>
         {
             _idleWatcher?.Configure(updated.IdleThresholdSeconds, updated.IdleDetectionEnabled);
+
+            // Applied here rather than in the settings store, so the registry
+            // and the setting can never disagree about whether Trace starts
+            // with Windows.
+            if (StartupRegistration.IsRegistered() != updated.StartWithWindows)
+            {
+                StartupRegistration.Apply(updated.StartWithWindows);
+            }
+
             queue.Post(new SettingsChanged(clock.UtcNowMs));
         };
+
+        // Reconcile once at startup, with the setting as the authority: it is
+        // what the user asked Trace for, and it is what the dashboard shows.
+        //
+        // Deliberately not the other way round. Deriving the setting from the
+        // registry would mean a user enabling startup in Settings found it
+        // silently switched off again on the next launch, because the registry
+        // had not been written yet.
+        //
+        // Disabling Trace from Task Manager's Startup tab is unaffected: Windows
+        // records that in its own StartupApproved key rather than by removing
+        // this value, so that choice still stands.
+        if (StartupRegistration.IsRegistered() != settings.Current.StartWithWindows)
+        {
+            StartupRegistration.Apply(settings.Current.StartWithWindows);
+        }
 
         // Paused survives a restart (DOCS/Privacy.md §27).
         engine.Start(clock.UtcNowMs, startPaused: !settings.Current.TrackingEnabled);

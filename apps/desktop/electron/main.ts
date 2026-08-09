@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { BrowserWindow, app, ipcMain, shell } from 'electron';
+import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron';
 import { TrackerClient, type ConnectionState } from './tracker-client.js';
 
 // __dirname, not import.meta.url: this is bundled to CommonJS, where
@@ -133,6 +133,28 @@ function registerHandlers(): void {
   ipcMain.handle('trace:state', () => client.getState());
 
   ipcMain.handle('trace:restart-tracker', () => restartTracker());
+
+  /**
+   * Where to save an export.
+   *
+   * The dialog belongs here because the renderer has no filesystem access at
+   * all. It returns a path, and the tracker — which owns the data — does the
+   * writing, after validating the destination itself.
+   */
+  ipcMain.handle('trace:choose-export-path', async () => {
+    const suggested = `trace-export-${new Date().toISOString().slice(0, 10)}.json`;
+
+    const result = await dialog.showSaveDialog(mainWindow ?? undefined!, {
+      title: 'Export your Trace history',
+      defaultPath: path.join(app.getPath('documents'), suggested),
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+      properties: ['createDirectory', 'showOverwriteConfirmation'],
+    });
+
+    return result.canceled ? null : result.filePath;
+  });
+
+  ipcMain.handle('trace:open-folder', (_event, folder: string) => shell.openPath(folder));
 }
 
 /**
