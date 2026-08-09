@@ -88,11 +88,11 @@ export function SettingsPage() {
   const tracking = current.trackingEnabled;
 
   return (
-    <div className="fade-in">
-      <PageHeader title="Settings" subtitle="Privacy and data" />
+    <div className="enter">
+      <PageHeader title="Settings" meta="Privacy and data" />
 
       {note && (
-        <div className="mb-6 rounded-[6px] border border-line bg-card px-4 py-3 text-ink-dim">
+        <div className="mb-6 rounded-md border border-hair px-4 py-3 text-ink-2">
           {note}
           <button
             type="button"
@@ -104,8 +104,8 @@ export function SettingsPage() {
         </div>
       )}
 
-      <Section title="Tracking">
-        <div className="mb-4 flex items-center gap-2.5 rounded-[6px] border border-line bg-card px-4 py-3">
+      <Section label="Tracking">
+        <div className="mb-4 flex items-center gap-2.5 rounded-md border border-hair px-4 py-3">
           <StatusDot state={!tracking ? 'paused' : status?.state === 'IDLE' ? 'idle' : 'live'} />
           <span className="flex-1 text-ink">
             {tracking ? 'Trace is recording your activity.' : 'Trace is not recording anything.'}
@@ -122,13 +122,13 @@ export function SettingsPage() {
           Pausing must survive a restart, or the control is a lie
           (DOCS/Privacy.md §27). Saying so is part of earning the trust.
         */}
-        <p className="text-ink-faint">
+        <p className="text-ink-4">
           Pausing stops all recording immediately, and stays paused until you resume it — including
           after restarting Windows.
         </p>
       </Section>
 
-      <Section title="What Trace records">
+      <Section label="What Trace records">
         <SettingRow
           label="Window titles"
           description="Titles turn “Chrome — 2h” into “YouTube, GitHub, Google”. They can also contain private information, so this switches them off entirely."
@@ -175,7 +175,7 @@ export function SettingsPage() {
 
       <ExcludedApplications settings={current} onSave={(patch) => save.mutate(patch)} />
 
-      <Section title="Windows">
+      <Section label="Windows">
         <SettingRow
           label="Start Trace with Windows"
           description="Starts the background tracker when you sign in. The dashboard stays closed until you open it."
@@ -208,7 +208,7 @@ export function SettingsPage() {
 
       <YourData settings={current} onNote={setNote} />
 
-      <Section title="Advanced">
+      <Section label="Advanced">
         <SettingRow
           label="Developer logs"
           description="Writes detailed diagnostics, including window titles, to Trace's log files. Off by default for that reason."
@@ -246,14 +246,14 @@ function NeverCollected() {
   ];
 
   return (
-    <div className="mt-5 rounded-[6px] border border-line bg-card px-4 py-3.5">
+    <div className="mt-5 rounded-md border border-hair px-4 py-3.5">
       <p className="text-ink">Trace never records</p>
-      <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-ink-dim">
+      <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-ink-2">
         {never.map((item) => (
           <li key={item}>· {item}</li>
         ))}
       </ul>
-      <p className="mt-3 border-t border-line pt-3 text-ink-faint">
+      <p className="mt-3 border-t border-hair pt-3 text-ink-4">
         Your activity never leaves this computer. There is no account and no server.
       </p>
     </div>
@@ -303,7 +303,7 @@ function ExcludedApplications({
 
   return (
     <Section
-      title="Excluded applications"
+      label="Excluded applications"
       actions={
         !adding && (
           <Button variant="ghost" onClick={() => setAdding(true)}>
@@ -312,13 +312,13 @@ function ExcludedApplications({
         )
       }
     >
-      <p className="mb-3 text-ink-dim">
+      <p className="mb-3 text-ink-2">
         Trace behaves as though these applications do not exist. No sessions, no window titles, no
         events — nothing is written and nothing is hidden after the fact.
       </p>
 
       {adding && (
-        <div className="mb-4 rounded-[6px] border border-line bg-card p-4">
+        <div className="mb-4 rounded-md border border-hair bg-p-4">
           <input
             type="text"
             autoFocus
@@ -327,12 +327,12 @@ function ExcludedApplications({
             onKeyDown={(event) => event.key === 'Enter' && add(typed)}
             placeholder="Executable name, for example 1password.exe"
             aria-label="Executable to exclude"
-            className="w-full select-text rounded-[5px] border border-line bg-surface px-2.5 py-1.5 text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
+            className="w-full select-text rounded-md border border-hair bg-px-2.5 py-1.5 text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none"
           />
 
           {(seen ?? []).length > 0 && (
             <div className="mt-3">
-              <p className="mb-1.5 text-ink-faint">Or pick one Trace has seen today</p>
+              <p className="mb-1.5 text-ink-4">Or pick one Trace has seen today</p>
               <div className="flex flex-wrap gap-1.5">
                 {(seen ?? [])
                   .filter((a) => !settings.excludedExecutables.includes(a.executable))
@@ -342,7 +342,7 @@ function ExcludedApplications({
                       key={application.applicationId}
                       type="button"
                       onClick={() => add(application.executable)}
-                      className="rounded-[4px] border border-line bg-raised px-2 py-1 text-ink-dim transition-colors hover:border-line-strong hover:text-ink"
+                      className="rounded-md border border-hair bg-lift px-2 py-1 text-ink-2 transition-colors hover:border-hair-strong hover:text-ink"
                     >
                       {application.name}
                     </button>
@@ -369,7 +369,7 @@ function ExcludedApplications({
       )}
 
       {settings.excludedExecutables.length === 0 ? (
-        <p className="py-2 text-ink-faint">No applications are excluded.</p>
+        <p className="py-2 text-ink-4">No applications are excluded.</p>
       ) : (
         <ul>
           {settings.excludedExecutables.map((executable) => {
@@ -378,7 +378,7 @@ function ExcludedApplications({
             return (
               <li
                 key={executable}
-                className="flex items-center justify-between gap-4 border-b border-line py-2.5 last:border-b-0"
+                className="flex items-center justify-between gap-4 border-b border-hair py-2.5 last:border-b-0"
               >
                 <span className="font-mono text-ink">{executable}</span>
                 <span className="flex items-center gap-2">
@@ -458,7 +458,7 @@ function YourData({
   });
 
   return (
-    <Section title="Your data">
+    <Section label="Your data">
       <SettingRow
         label="Export your history"
         description="A JSON file containing everything Trace has recorded — applications, sessions, window activity and the full event log."

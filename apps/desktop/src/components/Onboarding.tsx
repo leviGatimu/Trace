@@ -4,13 +4,13 @@ import { Button } from './primitives';
 /**
  * First run.
  *
- * Framed as consent rather than as a permission request. DOCS/MVP.md §9 sketches
- * a screen saying "Trace needs access to basic Windows activity information",
- * but nothing here requires a Windows permission or a UAC prompt — every API the
- * tracker uses works at the user's own integrity level. Asking for permission
- * Windows never asked for would misdescribe what is happening, so this asks the
- * user to decide what Trace should record instead, which is what
- * DOCS/Privacy.md §26 actually specifies.
+ * Framed as consent, not permission. DOCS/MVP.md §9 sketches a screen saying
+ * "Trace needs access to basic Windows activity information", but nothing here
+ * requires a Windows permission or a UAC prompt — every API the tracker uses
+ * works at the user's own integrity level. Asking for permission Windows never
+ * asked for would misdescribe what is happening, so this asks the user to
+ * decide what Trace should record instead, which is what DOCS/Privacy.md §26
+ * specifies.
  */
 export function Onboarding({
   onComplete,
@@ -29,25 +29,36 @@ export function Onboarding({
   const [startWithWindows, setStartWithWindows] = useState(true);
 
   return (
-    <div className="flex h-full items-center justify-center bg-surface px-8">
-      <div className="fade-in w-full max-w-[520px]">
-        <div className="mb-10 text-center">
-          <div className="text-[13px] font-semibold tracking-[0.2em] text-ink">TRACE</div>
-          <p className="mt-2 text-ink-dim">Your computer, remembered.</p>
+    <div className="flex h-full items-center justify-center px-10">
+      <div className="enter w-full max-w-[520px]">
+        <div className="mb-10 flex items-center gap-2.5">
+          <svg width="14" height="16" viewBox="0 0 16 18" fill="none" aria-hidden>
+            <rect x="0" y="0" width="16" height="3.2" rx="1.6" fill="var(--color-ink)" />
+            <rect x="6.4" y="5" width="3.2" height="6.4" rx="1.6" fill="var(--color-ink)" />
+            <circle cx="8" cy="15.4" r="2.5" fill="var(--color-accent)" />
+          </svg>
+          <span className="text-[13px] font-semibold tracking-[0.18em] text-ink">TRACE</span>
         </div>
 
         {step === 'promise' ? (
           <section>
-            <h1 className="text-[17px] font-medium text-ink">Your activity. Your computer. Your data.</h1>
-            <p className="mt-3 leading-relaxed text-ink-dim">
+            <h1 className="display text-[34px] leading-tight text-ink">
+              Your activity.
+              <br />
+              Your computer.
+              <br />
+              Your data.
+            </h1>
+
+            <p className="mt-6 max-w-md leading-relaxed text-ink-2">
               Trace records which applications you use and when, and builds a searchable history of
-              your day. Everything stays on this computer — there is no account, no server, and
+              your day. Everything stays on this computer. There is no account, no server, and
               nothing is ever uploaded.
             </p>
 
-            <div className="mt-6 rounded-[6px] border border-line bg-card px-4 py-3.5">
-              <p className="text-ink">Trace never records</p>
-              <ul className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-ink-dim">
+            <div className="mt-9">
+              <p className="eyebrow mb-3">Never recorded</p>
+              <ul className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-ink-3">
                 {[
                   'Keystrokes',
                   'Passwords',
@@ -58,12 +69,12 @@ export function Onboarding({
                   'File contents',
                   'Message contents',
                 ].map((item) => (
-                  <li key={item}>· {item}</li>
+                  <li key={item}>{item}</li>
                 ))}
               </ul>
             </div>
 
-            <div className="mt-8 flex justify-end">
+            <div className="mt-11">
               <Button variant="accent" onClick={() => setStep('choices')}>
                 Continue
               </Button>
@@ -71,10 +82,12 @@ export function Onboarding({
           </section>
         ) : (
           <section>
-            <h1 className="text-[17px] font-medium text-ink">What should Trace record?</h1>
-            <p className="mt-2 text-ink-dim">You can change any of this later in Settings.</p>
+            <h1 className="display text-[34px] leading-tight text-ink">
+              What should Trace record?
+            </h1>
+            <p className="mt-4 text-ink-2">You can change any of this later in Settings.</p>
 
-            <div className="mt-6 space-y-px">
+            <div className="mt-8">
               <Choice
                 checked
                 disabled
@@ -98,21 +111,21 @@ export function Onboarding({
                 checked={startWithWindows}
                 onChange={setStartWithWindows}
                 label="Start with Windows"
-                detail="Runs the tracker quietly when you sign in. The dashboard stays closed until you open it."
+                detail="Runs the tracker quietly when you sign in. The window stays closed until you open it."
               />
             </div>
 
-            <div className="mt-8 flex items-center justify-between">
-              <Button variant="ghost" onClick={() => setStep('promise')}>
-                Back
-              </Button>
+            <div className="mt-11 flex items-center gap-2">
               <Button
                 variant="accent"
                 onClick={() =>
                   onComplete({ recordWindowTitles, idleDetectionEnabled, startWithWindows })
                 }
               >
-                {busy ? 'Starting…' : 'Start Tracking'}
+                {busy ? 'Starting…' : 'Start tracking'}
+              </Button>
+              <Button variant="ghost" onClick={() => setStep('promise')}>
+                Back
               </Button>
             </div>
           </section>
@@ -138,8 +151,8 @@ function Choice({
   return (
     <label
       className={[
-        'flex cursor-pointer items-start gap-3 rounded-[5px] border border-line px-4 py-3 transition-colors',
-        disabled ? 'cursor-default opacity-70' : 'hover:border-line-strong',
+        'flex items-start gap-3 border-b border-hair py-4 last:border-b-0',
+        disabled ? 'opacity-60' : 'cursor-pointer',
       ].join(' ')}
     >
       <input
@@ -147,11 +160,11 @@ function Choice({
         checked={checked}
         disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
-        className="mt-[3px] h-3.5 w-3.5 accent-[var(--color-accent)]"
+        className="mt-[3px] h-3.5 w-3.5 shrink-0 accent-[var(--color-accent)]"
       />
       <span className="min-w-0">
         <span className="block text-ink">{label}</span>
-        <span className="mt-0.5 block text-ink-dim">{detail}</span>
+        <span className="mt-1 block leading-relaxed text-ink-3">{detail}</span>
       </span>
     </label>
   );

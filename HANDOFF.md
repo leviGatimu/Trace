@@ -215,6 +215,62 @@ development testing; delete `Data\activity.db*` to start clean.
 - Careful with PowerShell `Set-Content -Encoding utf8`: it writes a BOM, which
   made `package.json` unparseable to Vite. Use the file-writing tools instead.
 
+### Look at the UI before changing it — `scripts/shot.mjs`
+```
+# launch with the debugger, then screenshot any route
+electron . --remote-debugging-port=9333
+node scripts/shot.mjs out.png "#/applications/1" 9333
+node scripts/measure.mjs 9333        # real widths, and anything overflowing
+```
+Use these. Three rounds of "fixes" went into an overflow bug that **did not
+exist**: a PowerShell `PrintWindow` capture was DPI-unaware, so `GetWindowRect`
+returned logical pixels while the render was physical, and every screenshot was
+silently cropped to ~80% of the window. The crop looked exactly like the last
+column running off the edge. `measure.mjs` reported `overflowing: []` and ended
+it. Screenshot over CDP, not Win32.
+
+### Visual direction changed twice after Milestone 8
+
+**Second change — flat, typographic (current).** Glass was rejected too, along
+with "separating each part by its own borders". The current design:
+
+- **No cards, panels or boxes.** Sections are separated by vertical space and a
+  small uppercase label; lists by alignment and a hover tint. A border appears
+  only where two regions genuinely meet — the rail, a tab underline, the setting
+  rows, the session panel's edge.
+- **Signature: the day ribbon.** One continuous 24-hour band on Overview, with
+  each session drawn as a segment in its application's colour and gaps left as
+  gaps. It answers "when", which is what a recorder is for; a bar chart of
+  hourly totals answers "how much", which the headline figure already does.
+- **Type**: Segoe UI Variable *Display* for figures, *Text* for body, Cascadia
+  Mono for every timestamp and duration (`.data`). Windows' own optical sizes,
+  for a Windows tool.
+- **Per-application colour**, hashed from the executable in `lib/appColor.ts` so
+  it is stable forever without being stored. Six muted hues — an earlier eight
+  put orchid, coral and pink together and half the list looked identical.
+- **Base size is 15px**, raised from 13px on the owner's feedback that it was
+  unfriendly. Dense is not the same as small. `--color-ink-4` was also lifted;
+  at `#464c55` it was below a readable contrast.
+
+### Superseded: the glass direction
+The product owner reviewed the flat dark interface and asked for **fluid glass** —
+layered translucency, bubbly, responsive. This reverses specifics in
+`DOCS/UI and UX-design.md`, which is now amended at the top rather than
+rewritten; its page structure and behaviour still stand.
+
+- `src/styles/app.css` holds the whole system: glass recipe, ambient field,
+  motion curves. `.glass` for panes, `.glass-inner` for surfaces already on
+  glass (a second full blur costs a compositor pass and muddies what is below).
+- The window uses **Windows 11 acrylic** (`backgroundMaterial: 'acrylic'` with a
+  transparent `backgroundColor`). Unsupported machines fall back to the app's
+  own scrim, which is why that scrim is opaque enough to stand alone.
+- **The readability rule**: text never sits on the drifting colour field
+  directly, always on a surface with its own tint and blur. Break it and this
+  design becomes unreadable — that is the usual failure of glass interfaces.
+- `prefers-reduced-motion` stops the drift and all transitions.
+- Watch the count of blurring surfaces: `backdrop-filter` is GPU work per layer.
+  If the window ever feels sluggish, that is the first thing to look at.
+
 ### Exact next step on resume
 **Milestone 9 — hardening.** The list is in the plan §12; the ones that matter
 most here, in order:

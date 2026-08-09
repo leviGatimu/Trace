@@ -105,7 +105,7 @@ describe('the dashboard', () => {
     expect(await screen.findByText('Tracker unavailable')).toBeDefined();
     expect(await screen.findByText(/The Trace tracker is not running/)).toBeDefined();
 
-    const button = await screen.findByRole('button', { name: 'Restart Tracker' });
+    const button = await screen.findByRole('button', { name: 'Restart tracker' });
     button.click();
 
     await waitFor(() => expect(restartTracker).toHaveBeenCalled());

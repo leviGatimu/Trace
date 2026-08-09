@@ -1,13 +1,14 @@
-import { liveDuration, tidyWindowTitle } from '@/lib/format';
 import { useConnection, useCurrentActivity, useStatus } from '@/hooks/useTracker';
-import { StatusDot } from './primitives';
+import { appColor } from '@/lib/appColor';
+import { liveDuration, tidyWindowTitle } from '@/lib/format';
+import { AppSwatch, StatusDot } from './primitives';
 
 /**
- * "Currently active", pinned to the bottom of the sidebar.
+ * What is happening right now, at the foot of the rail.
  *
- * The design document calls this the feature that makes the application feel
- * alive, and it doubles as the tracking indicator DOCS/Privacy.md §11 requires:
- * the user should never have to wonder whether Trace is recording.
+ * Also the tracking indicator DOCS/Privacy.md §11 requires: the user should
+ * never have to wonder whether Trace is recording, so the state is named in
+ * words and never left to a colour.
  */
 export function LiveActivity() {
   const connection = useConnection();
@@ -18,40 +19,42 @@ export function LiveActivity() {
 
   const paused = status?.trackingEnabled === false;
   const idle = status?.state === 'IDLE';
+  const state = !connected ? 'off' : paused ? 'paused' : idle ? 'idle' : 'live';
+  const label = !connected ? 'Not tracking' : paused ? 'Paused' : idle ? 'Idle' : 'Tracking';
 
   return (
-    <div className="border-t border-line px-5 py-4">
+    <div className="px-5 pb-5 pt-4">
       <div className="flex items-center gap-2">
-        <StatusDot state={!connected ? 'off' : paused ? 'paused' : idle ? 'idle' : 'live'} />
-        <span className="text-[11px] uppercase tracking-[0.08em] text-ink-faint">
-          {!connected ? 'Not tracking' : paused ? 'Paused' : idle ? 'Idle' : 'Tracking'}
-        </span>
+        <StatusDot state={state} />
+        <span className="eyebrow">{label}</span>
       </div>
 
       {connected && current && !paused ? (
         <div className="mt-3">
-          <div className="truncate text-ink" title={current.applicationName}>
-            {current.applicationName}
+          <div className="flex items-center gap-2">
+            <AppSwatch color={appColor(current.executable)} />
+            <span className="truncate text-ink" title={current.applicationName}>
+              {current.applicationName}
+            </span>
           </div>
 
           {tidyWindowTitle(current.windowTitle, current.applicationName) && (
-            <div
-              className="mt-0.5 truncate text-ink-dim"
-              title={current.windowTitle ?? undefined}
-            >
+            <div className="mt-1 truncate text-ink-3" title={current.windowTitle ?? undefined}>
               {tidyWindowTitle(current.windowTitle, current.applicationName)}
             </div>
           )}
 
-          <div className="tabular mt-2 text-ink-dim">
+          <div className="display mt-2.5 text-[22px] leading-none text-ink">
             {liveDuration(current.activeSeconds)}
-            {current.idleSeconds > 0 && (
-              <span className="text-ink-faint"> · {liveDuration(current.idleSeconds)} idle</span>
-            )}
           </div>
+          {current.idleSeconds > 0 && (
+            <div className="data mt-1.5 text-ink-4">
+              {liveDuration(current.idleSeconds)} idle
+            </div>
+          )}
         </div>
       ) : (
-        <p className="mt-3 text-ink-faint">
+        <p className="mt-3 text-ink-4">
           {!connected
             ? 'The tracker is not running.'
             : paused
@@ -60,11 +63,7 @@ export function LiveActivity() {
         </p>
       )}
 
-      {/*
-        The promise, stated where the user can see it while the thing is
-        running. DOCS/UI and UX-design.md asks for exactly this.
-      */}
-      <p className="mt-4 border-t border-line pt-3 text-[11px] leading-relaxed text-ink-faint">
+      <p className="mt-6 text-[13px] leading-relaxed text-ink-4">
         Everything stays on this device.
         <br />
         Nothing is uploaded.

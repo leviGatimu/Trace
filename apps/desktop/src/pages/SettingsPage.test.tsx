@@ -131,8 +131,10 @@ describe('onboarding', () => {
   it('asks for consent before anything else, and names what is never collected', async () => {
     mount({ onboardingCompleted: false });
 
-    expect(await screen.findByText('Your activity. Your computer. Your data.')).toBeDefined();
-    expect(await screen.findByText('· Keystrokes')).toBeDefined();
+    // The headline is set across three lines, so match a clause rather than
+    // the whole sentence.
+    expect(await screen.findByText(/Your activity\./)).toBeDefined();
+    expect(await screen.findByText('Keystrokes')).toBeDefined();
 
     // Deliberately not phrased as a Windows permission request: nothing here
     // needs one (implementation plan §13.4).
@@ -147,7 +149,7 @@ describe('onboarding', () => {
 
     // Turn window titles off before starting.
     fireEvent.click(await screen.findByRole('checkbox', { name: /Window titles/ }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Start Tracking' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Start tracking' }));
 
     await waitFor(() => {
       const update = calls.find(([method]) => method === 'settings.update');

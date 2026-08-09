@@ -1,3 +1,32 @@
+> **Amendment — 2026-08-09. The visual direction below has been superseded.**
+>
+> After seeing the flat dark interface built to this document, the product owner
+> asked for **fluid glass**: layered translucency, generous radii, bubbly and
+> responsive rather than austere. That reverses several specifics stated below —
+> the rejections of "excessive rounded corners" and "glowing gradients", and the
+> flat `#0D0F12` / `#111419` / `#15181D` surface palette.
+>
+> **What changed**
+> - The window uses Windows 11 acrylic, so the bottom layer is the real desktop
+>   blurred by the compositor.
+> - Surfaces are translucent panes with backdrop blur, a top-edge highlight and
+>   a soft drop shadow, floating over a slow-drifting field of colour.
+> - Radii are large; anything pressable is a pill. Motion overshoots slightly.
+>
+> **What did not change, and must not**
+> - One accent, still used only for state and action.
+> - Dark-first, quiet, dense-but-not-cluttered.
+> - Every state matters: loading, empty, error, partial, success.
+> - Accessibility is a requirement. Text never sits on the colour field
+>   directly — always on a surface with its own tint — and `prefers-reduced-motion`
+>   stops the drift entirely.
+>
+> Everything below this line still describes the intended *structure*, *content*
+> and *behaviour* of each page, which is unchanged. Read the colour and shape
+> specifics as historical.
+
+---
+
 The app should feel like it's quietly watching the system and turning everything into an organized history.
 
 🖥️ The overall feeling

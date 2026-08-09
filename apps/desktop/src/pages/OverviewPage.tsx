@@ -1,140 +1,169 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { DayActivity } from '@trace/contracts';
+import type { ApplicationSummary, TimelineEntry } from '@trace/contracts';
 import { DayPicker } from '@/components/DayPicker';
+import { DayRibbon } from '@/components/DayRibbon';
 import {
-  Bar,
+  AppSwatch,
   EmptyState,
   ErrorState,
+  Headline,
+  Meter,
   PageHeader,
+  Row,
   Section,
   Skeleton,
-  Stat,
 } from '@/components/primitives';
-import { useConnection, useDay } from '@/hooks/useTracker';
-import { clockTime, duration, greeting, localDayRange, relativeDay, startOfLocalDay } from '@/lib/format';
+import { useConnection, useDay, useTimeline } from '@/hooks/useTracker';
+import { appColor } from '@/lib/appColor';
+import {
+  clockTime,
+  duration,
+  localDayRange,
+  relativeDay,
+  startOfLocalDay,
+  tidyWindowTitle,
+} from '@/lib/format';
 
 /**
- * The home page. It answers one question — "what have I been doing today?" —
- * and resists becoming a wall of statistics, which the design document is
- * explicit about.
+ * "Where did my time go today?"
+ *
+ * One question, answered in three passes: the total, the shape of the day, and
+ * what filled it. Nothing else belongs here.
  */
 export function OverviewPage() {
   const [day, setDay] = useState(() => startOfLocalDay(new Date()));
   const range = useMemo(() => localDayRange(day), [day]);
+  const navigate = useNavigate();
 
   const connection = useConnection();
   const connected = connection.status === 'connected';
-  const { data, isPending, error, refetch } = useDay(range, connected);
+
+  const dayQuery = useDay(range, connected);
+  const timeline = useTimeline(range, connected);
 
   return (
     <>
       <PageHeader
-        title={`${greeting()}`}
-        subtitle={relativeDay(day)}
+        title={relativeDay(day)}
+        meta={day.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}
         actions={<DayPicker day={day} onChange={setDay} />}
       />
 
       {!connected ? (
-        <EmptyState title="Waiting for the tracker" detail="Activity will appear once it is running." />
-      ) : error ? (
-        <ErrorState message="Today's activity could not be loaded." onRetry={() => void refetch()} />
-      ) : isPending ? (
+        <EmptyState
+          title="Waiting for the tracker"
+          detail="Activity appears here once it is running."
+        />
+      ) : dayQuery.error ? (
+        <ErrorState message="This day could not be loaded." onRetry={() => void dayQuery.refetch()} />
+      ) : dayQuery.isPending ? (
         <Skeleton rows={6} />
+      ) : dayQuery.data.sessionCount === 0 ? (
+        <EmptyState
+          title="Nothing recorded for this day"
+          detail="Trace records an application once you switch to it. Anything shorter than a few seconds is treated as noise rather than history."
+        />
       ) : (
-        <DayView day={data} />
+        <div className="enter">
+          <Headline
+            value={duration(dayQuery.data.totalActiveSeconds)}
+            unit="active"
+            facts={[
+              `${dayQuery.data.applicationCount} applications`,
+              `${dayQuery.data.sessionCount} sessions`,
+              `${duration(dayQuery.data.totalIdleSeconds)} idle`,
+            ]}
+          />
+
+          <DayRibbon
+            entries={timeline.data ?? []}
+            range={range}
+            nowUtcMs={Math.min(Date.now(), range.toUtcMs)}
+          />
+
+          <MostUsed
+            applications={dayQuery.data.applications}
+            onOpen={(applicationId) => navigate(`/applications/${applicationId}`)}
+          />
+
+          <Recent entries={timeline.data ?? []} />
+        </div>
       )}
     </>
   );
 }
 
-function DayView({ day }: { day: DayActivity }) {
-  const navigate = useNavigate();
-
-  if (day.sessionCount === 0) {
-    return (
-      <EmptyState
-        title="Nothing recorded for this day"
-        detail="Trace records an application once you actually switch to it. Anything shorter than a few seconds is treated as noise."
-      />
-    );
-  }
-
-  const busiest = Math.max(...day.applications.map((application) => application.activeSeconds), 1);
+function MostUsed({
+  applications,
+  onOpen,
+}: {
+  applications: ApplicationSummary[];
+  onOpen: (applicationId: number) => void;
+}) {
+  const busiest = Math.max(...applications.map((application) => application.activeSeconds), 1);
 
   return (
-    <div className="fade-in">
-      <div className="mb-9 flex gap-12">
-        <Stat value={duration(day.totalActiveSeconds)} label="Active time" />
-        <Stat value={String(day.applicationCount)} label="Applications" />
-        <Stat value={String(day.sessionCount)} label="Sessions" />
-        {day.totalIdleSeconds > 0 && (
-          <Stat value={duration(day.totalIdleSeconds)} label="Idle" />
-        )}
-      </div>
+    <Section label="Most used">
+      <div className="space-y-px">
+        {applications.slice(0, 8).map((application) => (
+          <Row key={application.applicationId} onClick={() => onOpen(application.applicationId)}>
+            <div className="flex items-center gap-3">
+              <AppSwatch color={appColor(application.executable)} />
+              <span className="min-w-0 flex-1 truncate text-ink">{application.name}</span>
 
-      <HourStrip day={day} />
-
-      <Section title="Most used">
-        <div className="space-y-px">
-          {day.applications.map((application) => (
-            <button
-              key={application.applicationId}
-              type="button"
-              onClick={() => navigate(`/applications/${application.applicationId}`)}
-              className="relative flex w-full items-center gap-4 rounded-[4px] px-3 py-2 text-left transition-colors duration-150 hover:bg-card"
-            >
-              <Bar fraction={application.activeSeconds / busiest} />
-              <span className="relative min-w-0 flex-1 truncate">{application.name}</span>
-              <span className="tabular relative text-ink-dim">
-                {application.sessionCount} {application.sessionCount === 1 ? 'session' : 'sessions'}
+              {/* Between the name and the figure, not beneath them: the eye
+                  compares lengths in a single horizontal sweep. */}
+              <span className="hidden w-28 shrink-0 sm:block">
+                <Meter
+                  fraction={application.activeSeconds / busiest}
+                  color={appColor(application.executable)}
+                />
               </span>
-              <span className="tabular relative w-20 text-right">
+
+              <span className="data w-10 shrink-0 text-right text-ink-4">
+                {application.sessionCount}×
+              </span>
+              <span className="data w-16 shrink-0 text-right text-ink">
                 {duration(application.activeSeconds)}
               </span>
-            </button>
-          ))}
-        </div>
-      </Section>
-    </div>
+            </div>
+          </Row>
+        ))}
+      </div>
+    </Section>
   );
 }
 
-/**
- * Active time by hour.
- *
- * The one approximation in the interface, and it is the tracker's: a session's
- * active time is spread across the hours it spans. Every figure stated as fact
- * elsewhere comes from a stored total.
- */
-function HourStrip({ day }: { day: DayActivity }) {
-  const peak = Math.max(...day.hourBuckets.map((bucket) => bucket.activeSeconds), 1);
+function Recent({ entries }: { entries: TimelineEntry[] }) {
+  const sessions = entries
+    .filter(
+      (entry): entry is Extract<TimelineEntry, { kind: 'session' }> => entry.kind === 'session',
+    )
+    .slice(-6)
+    .reverse();
+
+  if (sessions.length === 0) {
+    return null;
+  }
 
   return (
-    <Section title="Through the day">
-      <div className="flex h-[72px] items-end gap-[3px]">
-        {day.hourBuckets.map((bucket) => {
-          const height = (bucket.activeSeconds / peak) * 100;
-
-          return (
-            <div
-              key={bucket.startUtcMs}
-              className="group relative flex-1"
-              title={`${clockTime(bucket.startUtcMs)} · ${duration(bucket.activeSeconds)}`}
-            >
-              <div
-                className="w-full rounded-[2px] bg-accent/70 transition-all duration-500 ease-out group-hover:bg-accent"
-                style={{ height: `${Math.max(height, bucket.activeSeconds > 0 ? 4 : 1.5)}%`, minHeight: '2px' }}
-              />
+    <Section label="Recent">
+      <div className="space-y-px">
+        {sessions.map((session) => (
+          <Row key={session.sessionId}>
+            <div className="flex items-baseline gap-3">
+              <span className="data w-12 shrink-0 text-ink-4">{clockTime(session.startedAt)}</span>
+              <span className="w-36 shrink-0 truncate text-ink">{session.applicationName}</span>
+              <span className="min-w-0 flex-1 truncate text-ink-3">
+                {tidyWindowTitle(session.primaryWindowTitle, session.applicationName) ?? ''}
+              </span>
+              <span className="data w-16 shrink-0 text-right text-ink-2">
+                {duration(session.activeSeconds)}
+              </span>
             </div>
-          );
-        })}
-      </div>
-      <div className="mt-2 flex justify-between text-[11px] text-ink-faint">
-        {[0, 6, 12, 18].map((hour) => (
-          <span key={hour}>{String(hour).padStart(2, '0')}:00</span>
+          </Row>
         ))}
-        <span>23:59</span>
       </div>
     </Section>
   );

@@ -27,7 +27,7 @@ export function DayPicker({
         title="Next day"
         onClick={() => !isToday && onChange(addDays(day, 1))}
       >
-        <span className={isToday ? 'text-ink-faint/40' : undefined}>→</span>
+        <span className={isToday ? 'text-ink-4/40' : undefined}>→</span>
       </Button>
       {!isToday && (
         <Button variant="ghost" onClick={() => onChange(today)}>

@@ -94,14 +94,18 @@ app.on('window-all-closed', () => {
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 1240,
-    height: 820,
-    minWidth: 940,
-    minHeight: 620,
+    width: 1360,
+    height: 880,
+    minWidth: 1000,
+    minHeight: 640,
     show: false,
-    backgroundColor: '#0D0F12',
     title: 'Trace',
     autoHideMenuBar: true,
+
+    // Solid. Translucency was tried and rejected: it made a dense tool look
+    // like a widget, and it fights with the one thing this window is for —
+    // reading columns of small text.
+    backgroundColor: '#0B0C0F',
     webPreferences: {
       preload: path.join(directory, 'preload.cjs'),
       // The renderer gets no Node and no direct access to anything outside the

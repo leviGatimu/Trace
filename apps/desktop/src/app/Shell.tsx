@@ -5,21 +5,32 @@ import { useConnection } from '@/hooks/useTracker';
 import { bridge } from '@/services/trace';
 
 /**
- * The application frame: a narrow fixed sidebar and everything else.
+ * The frame.
  *
- * 232px, within the 220–240 the design document asks for, so the content keeps
- * the overwhelming majority of the window.
+ * Two regions, told apart by ground tone rather than by a border: the rail sits
+ * a shade below the canvas. That is the only structural division in the whole
+ * application, and it earns its place because the two regions genuinely are
+ * different things.
  */
 export function Shell() {
   const connection = useConnection();
 
   return (
     <div className="flex h-full">
-      <Sidebar />
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {connection.status !== 'connected' && <ConnectionBanner state={connection} />}
-        <div className="flex-1 overflow-y-auto px-8 py-7">
-          <div className="mx-auto w-full max-w-[1080px]">
+      <Rail />
+
+      <main className="flex min-w-0 flex-1 flex-col">
+        {connection.status !== 'connected' && <ConnectionNotice state={connection} />}
+
+        {/*
+          Capped and left-aligned, not centred: on a wide monitor an uncapped
+          row leaves a hand's width of nothing between an application's name and
+          its duration, and the two stop reading as the same row. Left-aligned
+          so the content keeps its spine against the rail instead of drifting
+          into the middle of the screen.
+        */}
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="min-w-0 max-w-[1080px] px-10 py-8">
             <Outlet />
           </div>
         </div>
@@ -35,78 +46,76 @@ const NAV = [
   { to: '/search', label: 'Search', end: false },
 ];
 
-function Sidebar() {
+function Rail() {
   return (
-    <nav className="flex w-[232px] shrink-0 flex-col border-r border-line bg-sidebar">
-      <div className="px-5 pb-6 pt-6">
-        <div className="text-[13px] font-semibold tracking-[0.16em] text-ink">TRACE</div>
-        <div className="mt-1 text-[11px] text-ink-faint">Your activity, remembered</div>
+    <div className="flex w-[212px] shrink-0 flex-col bg-rail">
+      <div className="flex items-center gap-2.5 px-5 pb-8 pt-6">
+        <Mark />
+        <span className="text-[13px] font-semibold tracking-[0.18em] text-ink">TRACE</span>
       </div>
 
-      <div className="flex-1 px-3">
+      <nav className="flex-1 px-3">
         {NAV.map((item) => (
-          <NavItem key={item.to} to={item.to} end={item.end} label={item.label} />
+          <Item key={item.to} {...item} />
         ))}
 
-        {/* Settings sits below a separator, as DOCS/MVP.md §6 lays out. */}
-        <div className="my-2 border-t border-line" />
-        <NavItem to="/settings" end={false} label="Settings" />
-      </div>
+        <div className="my-3 h-px bg-hair" />
+        <Item to="/settings" end={false} label="Settings" />
+      </nav>
 
       <LiveActivity />
-    </nav>
+    </div>
   );
 }
 
-function NavItem({ to, end, label }: { to: string; end: boolean; label: string }) {
+function Mark() {
+  return (
+    <svg width="13" height="15" viewBox="0 0 16 18" fill="none" aria-hidden>
+      <rect x="0" y="0" width="16" height="3.2" rx="1.6" fill="var(--color-ink)" />
+      <rect x="6.4" y="5" width="3.2" height="6.4" rx="1.6" fill="var(--color-ink)" />
+      <circle cx="8" cy="15.4" r="2.5" fill="var(--color-accent)" />
+    </svg>
+  );
+}
+
+function Item({ to, end, label }: { to: string; end: boolean; label: string }) {
   return (
     <NavLink
       to={to}
       end={end}
       className={({ isActive }) =>
         [
-          'relative mb-0.5 block rounded-[5px] px-3 py-[7px] transition-colors duration-150',
-          isActive ? 'bg-card text-ink' : 'text-ink-dim hover:bg-card/60 hover:text-ink',
+          'block rounded-md px-2.5 py-[8px] transition-colors duration-150',
+          isActive ? 'bg-lift text-ink' : 'text-ink-2 hover:text-ink',
         ].join(' ')
       }
     >
-      {({ isActive }) => (
-        <>
-          {/* A quiet marker on the active item rather than a filled block. */}
-          {isActive && (
-            <span className="absolute inset-y-[7px] left-0 w-[2px] rounded-full bg-accent" />
-          )}
-          {label}
-        </>
-      )}
+      {label}
     </NavLink>
   );
 }
 
 /**
- * The tracker being unavailable is a first-class state, not an error dialog.
- *
+ * The tracker being unavailable is a state of the product, not an error dialog.
  * DOCS/Windows Integration §21: say what is wrong and offer the one action that
- * fixes it, rather than "Something went wrong".
+ * fixes it.
  */
-function ConnectionBanner({ state }: { state: ReturnType<typeof useConnection> }) {
+function ConnectionNotice({ state }: { state: ReturnType<typeof useConnection> }) {
   if (state.status === 'connected') {
     return null;
   }
 
   if (state.status === 'connecting') {
     return (
-      <div className="border-b border-line bg-card px-8 py-2 text-ink-dim">
-        Connecting to the tracker…
-      </div>
+      <div className="border-b border-hair px-9 py-2.5 text-ink-3">Connecting to the tracker…</div>
     );
   }
 
   if (state.status === 'incompatible') {
     return (
-      <div className="border-b border-line bg-card px-8 py-3">
+      <div className="border-b border-hair px-9 py-3.5">
         <p className="text-ink">Trace needs updating</p>
-        <p className="mt-0.5 text-ink-dim">
+        <p className="mt-1 text-ink-3">
           The tracker speaks contract {state.trackerContractVersion}, which this window does not
           understand. Rather than guess, Trace has stopped reading it.
         </p>
@@ -115,15 +124,15 @@ function ConnectionBanner({ state }: { state: ReturnType<typeof useConnection> }
   }
 
   return (
-    <div className="flex items-center justify-between gap-6 border-b border-line bg-card px-8 py-3">
+    <div className="flex items-center justify-between gap-6 border-b border-hair px-9 py-3.5">
       <div className="min-w-0">
         <p className="text-ink">Tracker unavailable</p>
-        <p className="mt-0.5 truncate text-ink-dim">
+        <p className="mt-0.5 truncate text-ink-3">
           {state.reason} Trace is not receiving activity data.
         </p>
       </div>
       <Button variant="accent" onClick={() => void bridge.restartTracker()}>
-        Restart Tracker
+        Restart tracker
       </Button>
     </div>
   );

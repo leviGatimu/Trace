@@ -6,26 +6,20 @@ import { trace } from '@/services/trace';
 import { Button, ErrorState, Skeleton } from './primitives';
 
 /**
- * The session detail panel, sliding in from the right.
+ * One session, in full.
  *
- * This is where the event log earns its place: the same stretch of time the
- * timeline shows as one row is broken down into exactly what happened, which is
- * the "deep without being overwhelming" the design document asks for.
+ * Where the event log earns its place: the stretch the timeline shows as a
+ * single row, broken into what actually happened. An overlay is the one place a
+ * hard edge is justified — the panel genuinely is in front of the page, so it
+ * gets its own ground and a single dividing line, and nothing inside it is
+ * boxed.
  */
-export function SessionPanel({
-  sessionId,
-  onClose,
-}: {
-  sessionId: number;
-  onClose: () => void;
-}) {
+export function SessionPanel({ sessionId, onClose }: { sessionId: number; onClose: () => void }) {
   const { data, isPending, error, refetch } = useQuery({
     queryKey: ['activity', 'session', sessionId],
     queryFn: () => trace.session(sessionId),
   });
 
-  // Escape closes it. A desktop application that traps you in a panel is not a
-  // desktop application.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -39,67 +33,60 @@ export function SessionPanel({
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-10 bg-black/40"
-        onClick={onClose}
-        role="presentation"
-      />
+      <div className="fixed inset-0 z-10 bg-black/45" onClick={onClose} role="presentation" />
+
       <aside
-        className="fixed inset-y-0 right-0 z-20 flex w-[420px] flex-col border-l border-line bg-sidebar shadow-2xl"
-        style={{ animation: 'slide-in 180ms ease-out' }}
+        className="fixed inset-y-0 right-0 z-20 flex w-[470px] flex-col border-l border-hair bg-rail"
+        style={{ animation: 'panel-in 220ms cubic-bezier(0.22,1,0.36,1) both' }}
         aria-label="Session detail"
       >
-        <style>{`@keyframes slide-in { from { transform: translateX(16px); opacity: 0 } to { transform: none; opacity: 1 } }`}</style>
-
-        <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+        <header className="flex items-start justify-between gap-4 px-7 pb-6 pt-6">
           <div className="min-w-0">
-            <h2 className="truncate text-[15px] text-ink">
+            <h2 className="truncate text-[20px] font-semibold text-ink">
               {data?.applicationName ?? 'Session'}
             </h2>
             {data && (
-              <p className="mt-0.5 tabular text-ink-dim">
+              <p className="data mt-1 text-ink-3">
                 {clockTimeWithSeconds(data.startedAt)}
-                {data.endedAt ? ` — ${clockTimeWithSeconds(data.endedAt)}` : ' — now'}
+                {data.endedAt ? ` – ${clockTimeWithSeconds(data.endedAt)}` : ' – now'}
               </p>
             )}
           </div>
           <Button variant="ghost" onClick={onClose} title="Close (Esc)">
-            ✕
+            Esc
           </Button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto px-7 pb-7">
           {error ? (
             <ErrorState message="This session could not be loaded." onRetry={() => void refetch()} />
           ) : isPending ? (
-            <Skeleton rows={5} />
+            <Skeleton rows={6} />
           ) : (
             <>
-              <dl className="mb-6 grid grid-cols-2 gap-x-4 gap-y-3">
-                <Field label="Active time" value={duration(data.activeSeconds)} />
-                <Field label="Idle time" value={duration(data.idleSeconds)} />
+              <dl className="mb-9 grid grid-cols-2 gap-x-6 gap-y-5">
+                <Field label="Active" value={duration(data.activeSeconds)} />
+                <Field label="Idle" value={duration(data.idleSeconds)} />
                 <Field label="Windows" value={String(data.windowSessions.length)} />
                 <Field label="Ended" value={endReasonLabel(data.endReason)} />
               </dl>
 
               {data.windowSessions.length > 0 && (
-                <section className="mb-6">
-                  <h3 className="mb-2 border-b border-line pb-2 text-[11px] uppercase tracking-[0.09em] text-ink-faint">
-                    Window activity
-                  </h3>
-                  <ul className="space-y-1">
+                <section className="mb-9">
+                  <h3 className="eyebrow mb-3">Windows</h3>
+                  <ul className="space-y-1.5">
                     {data.windowSessions.map((window) => (
                       <li key={window.windowSessionId} className="flex items-baseline gap-3">
-                        <span className="tabular w-12 shrink-0 text-ink-faint">
+                        <span className="data w-12 shrink-0 text-ink-4">
                           {clockTimeWithSeconds(window.startedAt).slice(0, 5)}
                         </span>
                         <span
-                          className="min-w-0 flex-1 truncate text-ink-dim"
+                          className="min-w-0 flex-1 truncate text-ink-2"
                           title={window.title ?? undefined}
                         >
                           {tidyWindowTitle(window.title, data.applicationName) ?? '(no title)'}
                         </span>
-                        <span className="tabular shrink-0 text-ink-faint">
+                        <span className="data shrink-0 text-ink-4">
                           {duration(window.durationSeconds)}
                         </span>
                       </li>
@@ -109,16 +96,14 @@ export function SessionPanel({
               )}
 
               <section>
-                <h3 className="mb-2 border-b border-line pb-2 text-[11px] uppercase tracking-[0.09em] text-ink-faint">
-                  What happened
-                </h3>
-                <ul className="space-y-1">
+                <h3 className="eyebrow mb-3">What happened</h3>
+                <ul className="space-y-1.5">
                   {data.events.map((event) => (
                     <li key={event.eventId} className="flex items-baseline gap-3">
-                      <span className="tabular w-16 shrink-0 text-ink-faint">
+                      <span className="data w-16 shrink-0 text-ink-4">
                         {clockTimeWithSeconds(event.timestamp)}
                       </span>
-                      <span className="text-ink-dim">{eventLabel(event)}</span>
+                      <span className="text-ink-2">{eventLabel(event)}</span>
                     </li>
                   ))}
                 </ul>
@@ -134,8 +119,8 @@ export function SessionPanel({
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[11px] uppercase tracking-[0.08em] text-ink-faint">{label}</dt>
-      <dd className="tabular mt-0.5 text-ink">{value}</dd>
+      <dt className="eyebrow">{label}</dt>
+      <dd className="display mt-1.5 text-[22px] leading-none text-ink">{value}</dd>
     </div>
   );
 }
@@ -165,17 +150,17 @@ function eventLabel(event: EventRow): string {
 
 function endReasonLabel(reason: string | null): string {
   if (reason === null) {
-    return 'Still open';
+    return 'Open';
   }
 
   return (
     {
       APP_SWITCH: 'Switched away',
-      APP_EXIT: 'Application closed',
-      SYSTEM_LOCK: 'Computer locked',
-      SYSTEM_SLEEP: 'Computer slept',
-      TRACKING_PAUSED: 'Tracking paused',
-      SYSTEM_SHUTDOWN: 'Computer shut down',
+      APP_EXIT: 'App closed',
+      SYSTEM_LOCK: 'Locked',
+      SYSTEM_SLEEP: 'Slept',
+      TRACKING_PAUSED: 'Paused',
+      SYSTEM_SHUTDOWN: 'Shut down',
       CRASH_RECOVERY: 'Interrupted',
     }[reason] ?? reason
   );

@@ -3,6 +3,7 @@ import type { TimelineEntry, TimelineSessionEntry, TimelineSystemEntry } from '@
 import { DayPicker } from '@/components/DayPicker';
 import { SessionPanel } from '@/components/SessionPanel';
 import {
+  AppSwatch,
   EmptyState,
   ErrorState,
   PageHeader,
@@ -10,15 +11,22 @@ import {
   StatusDot,
 } from '@/components/primitives';
 import { useConnection, useTimeline } from '@/hooks/useTracker';
-import { clockTime, duration, localDayRange, relativeDay, startOfLocalDay, tidyWindowTitle } from '@/lib/format';
+import { appColor } from '@/lib/appColor';
+import {
+  clockTime,
+  duration,
+  localDayRange,
+  relativeDay,
+  startOfLocalDay,
+  tidyWindowTitle,
+} from '@/lib/format';
 
 /**
- * The signature page: the day, reconstructed.
+ * The day, read top to bottom.
  *
- * The design document describes it as a flight recorder, so it reads as one
- * continuous column of time rather than a grid of cards — including the
- * stretches where nothing was recorded, which are as much a part of the record
- * as the sessions.
+ * Time is the left column, and everything hangs off it. No spine, no nodes, no
+ * ornament — the alignment of the clock column is the structure, which is
+ * exactly how a log reads.
  */
 export function TimelinePage() {
   const [day, setDay] = useState(() => startOfLocalDay(new Date()));
@@ -33,7 +41,7 @@ export function TimelinePage() {
     <>
       <PageHeader
         title="Timeline"
-        subtitle={relativeDay(day)}
+        meta={relativeDay(day)}
         actions={<DayPicker day={day} onChange={setDay} />}
       />
 
@@ -42,20 +50,22 @@ export function TimelinePage() {
       ) : error ? (
         <ErrorState message="The timeline could not be loaded." onRetry={() => void refetch()} />
       ) : isPending ? (
-        <Skeleton rows={8} />
+        <Skeleton rows={9} />
       ) : data.length === 0 ? (
         <EmptyState
           title="Nothing recorded for this day"
-          detail="Switch to another day, or leave Trace running and come back later."
+          detail="Pick another day, or leave Trace running and come back later."
         />
       ) : (
-        <ol className="fade-in relative border-l border-line pl-6">
+        <ol className="enter">
           {data.map((entry, index) => (
-            <TimelineRow
-              key={rowKey(entry, index)}
-              entry={entry}
-              onSelect={setSelectedSessionId}
-            />
+            <li key={key(entry, index)}>
+              {entry.kind === 'session' ? (
+                <SessionLine entry={entry} onSelect={setSelectedSessionId} />
+              ) : (
+                <SystemLine entry={entry} />
+              )}
+            </li>
           ))}
         </ol>
       )}
@@ -67,21 +77,7 @@ export function TimelinePage() {
   );
 }
 
-function TimelineRow({
-  entry,
-  onSelect,
-}: {
-  entry: TimelineEntry;
-  onSelect: (sessionId: number) => void;
-}) {
-  return entry.kind === 'session' ? (
-    <SessionRow entry={entry} onSelect={onSelect} />
-  ) : (
-    <SystemRow entry={entry} />
-  );
-}
-
-function SessionRow({
+function SessionLine({
   entry,
   onSelect,
 }: {
@@ -89,62 +85,50 @@ function SessionRow({
   onSelect: (sessionId: number) => void;
 }) {
   const title = tidyWindowTitle(entry.primaryWindowTitle, entry.applicationName);
-  const isOpen = entry.endedAt === null;
 
   return (
-    <li className="relative py-2">
-      {/* The node on the spine. */}
-      <span className="absolute -left-[25px] top-[15px] h-[5px] w-[5px] rounded-full bg-line-strong" />
+    <button
+      type="button"
+      onClick={() => onSelect(entry.sessionId)}
+      className="-mx-2 flex w-[calc(100%+1rem)] items-baseline gap-3 rounded-sm px-2 py-[11px] text-left transition-colors duration-150 hover:bg-lift"
+    >
+      <span className="data w-12 shrink-0 text-ink-4">{clockTime(entry.startedAt)}</span>
 
-      <button
-        type="button"
-        onClick={() => onSelect(entry.sessionId)}
-        className="group flex w-full items-start gap-4 rounded-[5px] px-3 py-2 text-left transition-colors duration-150 hover:bg-card"
-      >
-        <span className="tabular w-12 shrink-0 pt-px text-ink-faint">
-          {clockTime(entry.startedAt)}
+      <AppSwatch color={appColor(entry.executable)} />
+
+      <span className="w-40 shrink-0 truncate text-ink">{entry.applicationName}</span>
+
+      <span className="min-w-0 flex-1 truncate text-ink-3" title={entry.primaryWindowTitle ?? undefined}>
+        {title ?? ''}
+      </span>
+
+      {entry.endedAt === null && <StatusDot state="live" />}
+
+      {/* Why a session ended is recorded, so it can be said. A day containing
+          a crash should admit it rather than quietly show a shorter session. */}
+      {entry.endReason === 'CRASH_RECOVERY' && (
+        <span className="shrink-0 text-warning">interrupted</span>
+      )}
+
+      {entry.idleSeconds > 0 && (
+        <span className="data w-20 shrink-0 text-right text-ink-4">
+          {duration(entry.idleSeconds)} idle
         </span>
+      )}
 
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-2">
-            <span className="truncate text-ink">{entry.applicationName}</span>
-            {isOpen && <StatusDot state="live" />}
-          </span>
-
-          {title && (
-            <span className="mt-0.5 block truncate text-ink-dim" title={entry.primaryWindowTitle ?? undefined}>
-              {title}
-            </span>
-          )}
-
-          {/*
-            Why a session ended is recorded, so it can be shown. A day that
-            includes a crash should say so rather than quietly presenting a
-            shorter session.
-          */}
-          {entry.endReason === 'CRASH_RECOVERY' && (
-            <span className="mt-0.5 block text-warning">Interrupted — ended unexpectedly</span>
-          )}
-        </span>
-
-        <span className="shrink-0 text-right">
-          <span className="tabular block text-ink">{duration(entry.activeSeconds)}</span>
-          {entry.idleSeconds > 0 && (
-            <span className="tabular block text-ink-faint">
-              {duration(entry.idleSeconds)} idle
-            </span>
-          )}
-        </span>
-      </button>
-    </li>
+      <span className="data w-16 shrink-0 text-right text-ink">
+        {duration(entry.activeSeconds)}
+      </span>
+    </button>
   );
 }
 
 /**
- * Locked, asleep, paused. These are gaps rather than activity, so they are
- * rendered as quiet dividers instead of rows competing with real sessions.
+ * Locked, asleep, paused. These are absences, so they are set quietly and
+ * without the application columns — the shape of the row itself says "nothing
+ * happened here".
  */
-function SystemRow({ entry }: { entry: TimelineSystemEntry }) {
+function SystemLine({ entry }: { entry: TimelineSystemEntry }) {
   const label = {
     LOCKED: 'Computer locked',
     ASLEEP: 'Computer asleep',
@@ -158,19 +142,16 @@ function SystemRow({ entry }: { entry: TimelineSystemEntry }) {
       : duration(Math.round((entry.endedAt - entry.startedAt) / 1000));
 
   return (
-    <li className="relative py-2">
-      <span className="absolute -left-[27px] top-[13px] h-[9px] w-[9px] rounded-full border border-line-strong bg-surface" />
-      <div className="flex items-center gap-4 px-3 py-1 text-ink-faint">
-        <span className="tabular w-12 shrink-0">{clockTime(entry.startedAt)}</span>
-        <span className="flex-1 truncate">{label}</span>
-        {length && <span className="tabular">{length}</span>}
-      </div>
-    </li>
+    <div className="flex items-baseline gap-3 py-[11px] text-ink-4">
+      <span className="data w-12 shrink-0">{clockTime(entry.startedAt)}</span>
+      <span className="flex-1 truncate">{label}</span>
+      {length && <span className="data w-16 shrink-0 text-right">{length}</span>}
+    </div>
   );
 }
 
-function rowKey(entry: TimelineEntry, index: number): string {
+function key(entry: TimelineEntry, index: number): string {
   return entry.kind === 'session'
-    ? `session-${entry.sessionId}`
-    : `system-${entry.interval}-${entry.startedAt}-${index}`;
+    ? `s${entry.sessionId}`
+    : `y${entry.interval}-${entry.startedAt}-${index}`;
 }
