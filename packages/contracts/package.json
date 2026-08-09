@@ -1,0 +1,17 @@
+{
+  "name": "@trace/contracts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The Trace.exe <-> TraceTracker.exe IPC contract. Types only, no runtime dependencies.",
+  "type": "module",
+  "main": "./ts/index.ts",
+  "types": "./ts/index.ts",
+  "exports": {
+    ".": "./ts/index.ts"
+  },
+  "files": [
+    "ts",
+    "cs",
+    "ipc-contract.md"
+  ]
+}

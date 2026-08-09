@@ -1,0 +1,32 @@
+# Node
+node_modules/
+dist/
+dist-electron/
+release/
+*.tsbuildinfo
+.vite/
+
+# .NET
+bin/
+obj/
+artifacts/
+*.user
+
+# Build output
+build-output/
+
+# Local environment
+.env
+.env.local
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Logs / local data (must never be committed - may contain activity data)
+*.log
+*.db
+*.db-wal
+*.db-shm
+trace-export-*.json

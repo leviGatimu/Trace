@@ -1,0 +1,79 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      WinExe: no console window. The tracker needs a Win32 message pump anyway
+      (WM_WTSSESSION_CHANGE, WM_POWERBROADCAST, WM_ENDSESSION, SetWinEventHook),
+      and UseWindowsForms supplies both that and NotifyIcon for the tray.
+      No forms are ever created.
+    -->
+    <OutputType>WinExe</OutputType>
+    <!--
+      The platform version must be stated in the TFM, not only in
+      SupportedOSPlatformVersion. 10.0.17763 is Windows 10 1809 — the oldest
+      still-serviced build, and comfortably below the Windows 10/11 the product
+      targets.
+    -->
+    <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <!--
+      Required by [LibraryImport]: the interop source generator emits unsafe
+      code. Confined in practice to Windows/NativeMethods.cs, which is the only
+      file that declares P/Invokes.
+    -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <AssemblyName>TraceTracker</AssemblyName>
+    <RootNamespace>Trace.Tracker</RootNamespace>
+    <Product>Trace</Product>
+    <AssemblyTitle>Trace Tracker</AssemblyTitle>
+    <Company>Trace</Company>
+    <Version>0.1.0</Version>
+
+    <!-- Windows-only by design; suppress the cross-platform analyser noise. -->
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+
+    <!-- Publish profile: one self-contained exe, no runtime install required. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!--
+      Trimming is deliberately OFF. SQLitePCLRaw resolves providers reflectively;
+      trimming buys ~30 MB and risks a runtime failure in the component that
+      owns the user's entire history. Not a trade worth making.
+    -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
+    <!--
+      Microsoft.Data.Sqlite still resolves SQLitePCLRaw 2.1.x transitively, and
+      2.1.11 carries GHSA-2m69-gcr7-jv3q (high severity). Pin the native SQLite
+      bundle forward explicitly. This is the library that owns the user's entire
+      history, so a known-vulnerable build of it is not acceptable.
+      Revisit when Microsoft.Data.Sqlite ships a 3.x SQLitePCLRaw by default.
+    -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Migrations ship inside the binary so they can never desync from code. -->
+    <EmbeddedResource Include="Data\Migrations\*.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The IPC contract is shared source, not a copy. -->
+    <Compile Include="..\..\..\packages\contracts\cs\**\*.cs" LinkBase="Contracts" />
+  </ItemGroup>
+
+</Project>

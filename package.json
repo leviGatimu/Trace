@@ -1,0 +1,23 @@
+{
+  "name": "trace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Trace — your computer's activity, remembered. Private and local by design.",
+  "workspaces": [
+    "apps/desktop",
+    "packages/contracts"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace=@trace/desktop",
+    "build": "npm run build --workspace=@trace/desktop",
+    "build:tracker": "dotnet publish apps/tracker/Trace.Tracker/Trace.Tracker.csproj -c Release",
+    "test": "npm run test --workspace=@trace/desktop",
+    "test:tracker": "dotnet test apps/tracker/Trace.Tracker.Tests/Trace.Tracker.Tests.csproj",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "package": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1"
+  }
+}
