@@ -16,6 +16,7 @@ import {
   type SettingsPatch,
   type TimelineEntry,
   type TrackerStatus,
+  type UsagePeriods,
 } from '@trace/contracts';
 
 export type ConnectionState =
@@ -97,8 +98,12 @@ export const trace = {
     call<AnalyticsSummary>('analytics.getSummary', { dayStartsUtcMs }),
 
   applications: (range: DayRange) => call<ApplicationSummary[]>('applications.list', range),
-  application: (applicationId: number, range: DayRange) =>
-    call<ApplicationDetail>('applications.getDetail', { applicationId, ...range }),
+  /**
+   * The usage card's day boundaries travel with the request. The tracker has
+   * no timezone and will refuse the call rather than guess one.
+   */
+  application: (applicationId: number, range: DayRange, periods: UsagePeriods) =>
+    call<ApplicationDetail>('applications.getDetail', { applicationId, ...range, ...periods }),
 
   session: (sessionId: number) => call<SessionDetail>('sessions.getDetail', { sessionId }),
 

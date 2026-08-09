@@ -41,7 +41,9 @@ public class HardeningTests(ITestOutputHelper output)
         var getDay = Time(() => activity.GetDay(day, 5, now));
         var timeline = Time(() => activity.GetTimeline(new TimelineQuery(day.FromUtcMs, day.ToUtcMs, 5), now));
         var applications = Time(() => activity.ListApplications(day, 5, now));
-        var detail = Time(() => activity.GetApplicationDetail(1, day, 5, now));
+        var periods = new UsagePeriods(
+            seeded.LastDayStart, seeded.LastDayStart - 86_400_000, seeded.LastDayStart - (6 * 86_400_000));
+        var detail = Time(() => activity.GetApplicationDetail(1, day, periods, 5, now));
         var find = Time(() => search.Search(new SearchQueryParams("session", null, null, 100), now));
 
         output.WriteLine($"activity.getDay        {getDay.Ms,6} ms");

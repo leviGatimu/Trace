@@ -341,6 +341,25 @@ export interface ApplicationSummary {
   lastUsedAt: number;
 }
 
+/**
+ * Where the usage card's periods begin, in local time.
+ *
+ * Supplied by the client for the same reason every other boundary is (§4). The
+ * tracker used to derive "today" from UTC midnight, which was three hours out
+ * for anyone on UTC+3 and showed "Today 20m" beside "Not used today" — the
+ * exact class of mistake the local-days rule exists to prevent.
+ */
+export interface UsagePeriods {
+  todayStartUtcMs: number;
+  yesterdayStartUtcMs: number;
+  /** Local midnight six days before today: the seven-day window includes today. */
+  last7DaysStartUtcMs: number;
+}
+
+export interface ApplicationDetailQuery extends DayRange, UsagePeriods {
+  applicationId: number;
+}
+
 export interface ApplicationDetail {
   applicationId: number;
   name: string;

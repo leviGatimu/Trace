@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import type { DayRange } from '@trace/contracts';
+import { localUsagePeriods } from '@/lib/format';
 import { bridge, trace, type ConnectionState } from '@/services/trace';
 
 /**
@@ -93,10 +94,26 @@ export function useApplications(range: DayRange, enabled: boolean) {
   });
 }
 
+/**
+ * One application's detail.
+ *
+ * The usage card's day boundaries are part of the key as well as the request,
+ * so the card re-reads itself when the local day rolls over instead of showing
+ * yesterday's "Today" until something else invalidates it.
+ */
 export function useApplication(applicationId: number | null, range: DayRange, enabled: boolean) {
+  const periods = localUsagePeriods();
+
   return useQuery({
-    queryKey: ['activity', 'application', applicationId, range.fromUtcMs, range.toUtcMs],
-    queryFn: () => trace.application(applicationId!, range),
+    queryKey: [
+      'activity',
+      'application',
+      applicationId,
+      range.fromUtcMs,
+      range.toUtcMs,
+      periods.todayStartUtcMs,
+    ],
+    queryFn: () => trace.application(applicationId!, range, periods),
     enabled: enabled && applicationId !== null,
   });
 }

@@ -127,7 +127,7 @@ shape of this contract.
 | `activity.getCalendar` | `CalendarQuery` | `CalendarDay[]` |
 | `analytics.getSummary` | `AnalyticsQuery` | `AnalyticsSummary` |
 | `applications.list` | `DayRange` | `ApplicationSummary[]` |
-| `applications.getDetail` | `{ applicationId, ...DayRange }` | `ApplicationDetail` |
+| `applications.getDetail` | `ApplicationDetailQuery` | `ApplicationDetail` |
 | `sessions.getDetail` | `{ sessionId }` | `SessionDetail` |
 | `search.query` | `SearchQuery` | `SearchResult[]` |
 | `settings.get` | — | `Settings` |
@@ -171,7 +171,20 @@ approximation `DayActivity.hourBuckets` makes.
 Only sessions that **began** inside the span are counted, matching the calendar,
 so the headline total always equals the sum of the day bars.
 
-### 5.3 Destructive-method rules
+### 5.3 `applications.getDetail`
+
+`ApplicationDetailQuery` carries the session range *and* the three local
+midnights the usage card is measured against: `todayStartUtcMs`,
+`yesterdayStartUtcMs`, `last7DaysStartUtcMs` (six days back, so the window
+includes today).
+
+They are required, and a missing or out-of-order set returns `E_BAD_PARAMS`
+rather than being filled in. The tracker previously derived "today" from UTC
+midnight, which was hours out for anyone not on UTC; defaulting a missing
+boundary to zero would put every session ever recorded inside "today", which is
+a wrong number that looks like a real one.
+
+### 5.4 Destructive-method rules
 
 - `data.deleteAll` requires the literal confirmation string. A missing or wrong
   value returns `E_BAD_PARAMS`; there is no unguarded delete-everything call.

@@ -321,6 +321,17 @@ public sealed record ApplicationSummary(
     int SessionCount,
     long LastUsedAt);
 
+/// <summary>
+/// Where the usage card's periods begin, in local time. Supplied by the client
+/// for the same reason every other boundary is: the tracker does not know the
+/// user's timezone, and deriving "today" from UTC midnight was three hours out
+/// for anyone on UTC+3.
+/// </summary>
+public sealed record UsagePeriods(
+    long TodayStartUtcMs,
+    long YesterdayStartUtcMs,
+    long Last7DaysStartUtcMs);
+
 public sealed record ApplicationDetail(
     long ApplicationId,
     string Name,

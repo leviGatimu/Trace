@@ -481,7 +481,11 @@ internal sealed class ActivityQueries
             .ToList();
 
     public ApplicationDetail? GetApplicationDetail(
-        long applicationId, DayRange range, int minSessionSeconds, long nowUtcMs) =>
+        long applicationId,
+        DayRange range,
+        UsagePeriods periods,
+        int minSessionSeconds,
+        long nowUtcMs) =>
         _database.Read<ApplicationDetail?>(connection =>
         {
             using var lookup = connection.CreateCommand();
@@ -521,7 +525,7 @@ internal sealed class ActivityQueries
                 path,
                 firstSeen,
                 lastSeen,
-                ReadUsage(connection, applicationId, minSessionSeconds, nowUtcMs),
+                ReadUsage(connection, applicationId, periods, minSessionSeconds),
                 sessions,
                 ReadWindowRollup(connection, merged.SelectMany(s => s.RawSessionIds).ToList()));
         });
@@ -532,13 +536,18 @@ internal sealed class ActivityQueries
     /// Filtering by duration reproduces the merge's effect on totals without
     /// materialising every session: coalescing groups rows together but never
     /// changes the sum, so filtering alone gives the same numbers.
+    ///
+    /// The boundaries arrive from the client. They were once derived here as
+    /// <c>nowUtcMs - (nowUtcMs % 86_400_000)</c> — UTC midnight — which put the
+    /// card hours out for every user not on UTC and, just after local midnight,
+    /// had it report "Today 20m" beside a day with nothing on it.
     /// </summary>
     private static ApplicationUsage ReadUsage(
-        SqliteConnection connection, long applicationId, int minSessionSeconds, long nowUtcMs)
+        SqliteConnection connection,
+        long applicationId,
+        UsagePeriods periods,
+        int minSessionSeconds)
     {
-        var dayMs = 86_400_000L;
-        var todayStart = nowUtcMs - (nowUtcMs % dayMs);
-
         using var command = connection.CreateCommand();
         command.CommandText =
             """
@@ -554,9 +563,9 @@ internal sealed class ActivityQueries
             """;
 
         command.Parameters.AddWithValue("$id", applicationId);
-        command.Parameters.AddWithValue("$todayStart", todayStart);
-        command.Parameters.AddWithValue("$yesterdayStart", todayStart - dayMs);
-        command.Parameters.AddWithValue("$weekStart", todayStart - (6 * dayMs));
+        command.Parameters.AddWithValue("$todayStart", periods.TodayStartUtcMs);
+        command.Parameters.AddWithValue("$yesterdayStart", periods.YesterdayStartUtcMs);
+        command.Parameters.AddWithValue("$weekStart", periods.Last7DaysStartUtcMs);
         command.Parameters.AddWithValue("$minimumMs", (long)minSessionSeconds * 1000);
 
         using var reader = command.ExecuteReader();

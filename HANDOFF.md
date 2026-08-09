@@ -11,7 +11,7 @@ binding technical spec.
 first V2 slice (Calendar + Analytics) built.**
 Trace is installable: `installer\Trace-Setup-0.1.0.exe` (132 MB). Install →
 launch → tray → uninstall all verified on this machine.
-120 tests pass (91 tracker, 29 dashboard).
+122 tests pass (93 tracker, 29 dashboard).
 
 ## Progress
 - [x] Documentation audit; `DOCS/IMPLEMENTATION-PLAN.md`; 5 decisions resolved
@@ -308,19 +308,19 @@ rewritten; its page structure and behaviour still stand.
 - Bars are capped at 40px wide. Un-capped, a week of seven bars across a
   1,080-pixel row is a wall, and a single day fills the row edge to edge.
 
-### Found while verifying the calendar — not yet fixed
-**`applications.getDetail`'s Today / Yesterday / Last 7 days figures use UTC
-midnight, not the user's local midnight** (`ActivityQueries.ReadUsage`:
-`todayStart = nowUtcMs - (nowUtcMs % dayMs)`). On UTC+3 they are three hours out;
-at 00:40 local the page showed "Today 20m" beside "Not used today". This breaks
-the local-days rule in the contract (§4) — the boundaries have to come from the
-caller, as they do everywhere else. Fixing it is a contract change:
-`applications.getDetail` needs the day boundaries in its params.
+### The UTC-midnight bug (fixed)
+`ApplicationUsage`'s Today / Yesterday / Last 7 days came from UTC midnight
+(`nowUtcMs - (nowUtcMs % dayMs)`), so on UTC+3 they were three hours out and the
+page could show "Today 20m" beside "Not used today". `applications.getDetail`
+now takes the three local midnights, required and validated — a missing one
+deserialises to zero, and zero would file all of history under "today".
+
+**If another figure ever looks wrong by a few hours, look for this pattern
+first.** Grep for `% dayMs` and for any arithmetic on `nowUtcMs` that pretends
+to know where a day starts.
 
 ### Exact next step on resume
-1. **Fix the UTC-midnight bug above.** Deferred once by the owner in favour of
-   Analytics; it is still wrong for anyone not on UTC.
-2. **Finish Milestone 9.** The list is in the plan §12; what is left, in order:
+1. **Finish Milestone 9.** The list is in the plan §12; what is left, in order:
 
    - **Soak** (`scripts/soak.ps1`, passive, samples every 60 s to
      `%LOCALAPPDATA%\Trace\Logs\soak.csv`): started 2026-08-10 00:16, runs 8 h.
@@ -337,6 +337,8 @@ caller, as they do everywhere else. Fixing it is a contract change:
      database-corruption quarantine.
 
 ## Recently Completed
+- An application's Today / Yesterday / Last 7 days now use the user's local
+  midnights instead of UTC's (2026-08-10).
 - V2 Analytics — week / month / year to date, active time by day, hour-of-day
   histogram, longest stretch, most used (2026-08-10).
 - V2 Calendar — month grid, `activity.getCalendar`, deep link into the timeline

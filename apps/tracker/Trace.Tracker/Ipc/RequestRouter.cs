@@ -229,9 +229,27 @@ internal sealed class RequestRouter
         var request = Require<ApplicationDetailRequest>(parameters);
         ValidateRange(request.FromUtcMs, request.ToUtcMs);
 
+        var periods = new UsagePeriods(
+            request.TodayStartUtcMs, request.YesterdayStartUtcMs, request.Last7DaysStartUtcMs);
+
+        // Checked rather than defaulted. A missing boundary deserialises to
+        // zero, and zero would quietly make every session Trace has ever
+        // recorded part of "today" — a wrong number that looks like a real one.
+        if (periods.TodayStartUtcMs <= 0
+            || periods.YesterdayStartUtcMs <= 0
+            || periods.Last7DaysStartUtcMs <= 0
+            || periods.YesterdayStartUtcMs >= periods.TodayStartUtcMs
+            || periods.Last7DaysStartUtcMs > periods.YesterdayStartUtcMs)
+        {
+            throw new IpcException(
+                IpcErrorCode.E_BAD_PARAMS,
+                "The usage periods must be local midnights, oldest first.");
+        }
+
         return _services.Activity.GetApplicationDetail(
                    request.ApplicationId,
                    new DayRange(request.FromUtcMs, request.ToUtcMs),
+                   periods,
                    SessionMerger.DefaultMinSessionSeconds,
                    _services.Clock.UtcNowMs)
                ?? throw new IpcException(IpcErrorCode.E_NOT_FOUND, "No such application.");
@@ -380,7 +398,13 @@ internal sealed class IpcException(IpcErrorCode code, string message) : Exceptio
 }
 
 // Request shapes that exist only as method parameters.
-internal sealed record ApplicationDetailRequest(long ApplicationId, long FromUtcMs, long ToUtcMs);
+internal sealed record ApplicationDetailRequest(
+    long ApplicationId,
+    long FromUtcMs,
+    long ToUtcMs,
+    long TodayStartUtcMs,
+    long YesterdayStartUtcMs,
+    long Last7DaysStartUtcMs);
 
 internal sealed record ApplicationRequest(long ApplicationId);
 

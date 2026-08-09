@@ -312,6 +312,81 @@ public class IpcTests
     }
 
     [Fact]
+    public void An_applications_usage_card_splits_its_days_where_the_client_says_they_start()
+    {
+        // The bug this pins down: "today" was derived here as UTC midnight, so
+        // on UTC+3 the card was three hours out, and just after local midnight
+        // it reported time under Today for a day with nothing on it.
+        using var trace = new PersistenceHarness();
+        var engine = trace.NewEngine();
+
+        // The scripted day starts at 08:00 UTC. For a client three hours ahead,
+        // local midnight that morning was 21:00 UTC the evening before — so
+        // everything scripted here belongs to the client's *today*.
+        var localMidnight = EngineHarness.DayStartUtcMs - (11 * 3_600_000);
+
+        engine.Start().Switch("chrome.exe", "YouTube").AdvanceMinutes(40).ShutDown();
+
+        var detail = Ok<ApplicationDetail>(
+            NewRouter(trace),
+            IpcMethods.ApplicationsGetDetail,
+            new
+            {
+                applicationId = 1,
+                fromUtcMs = localMidnight,
+                toUtcMs = localMidnight + 86_400_000,
+                todayStartUtcMs = localMidnight,
+                yesterdayStartUtcMs = localMidnight - 86_400_000,
+                last7DaysStartUtcMs = localMidnight - (6 * 86_400_000),
+            });
+
+        Assert.Equal(40 * 60, detail.Usage.TodayActiveSeconds);
+        Assert.Equal(0, detail.Usage.YesterdayActiveSeconds);
+        Assert.Equal(40 * 60, detail.Usage.Last7DaysActiveSeconds);
+        Assert.Equal(40 * 60, detail.Usage.AllTimeActiveSeconds);
+
+        // And with the boundary an hour later, the same activity is yesterday's.
+        var nextMidnight = localMidnight + 86_400_000;
+
+        var tomorrow = Ok<ApplicationDetail>(
+            NewRouter(trace),
+            IpcMethods.ApplicationsGetDetail,
+            new
+            {
+                applicationId = 1,
+                fromUtcMs = localMidnight,
+                toUtcMs = nextMidnight,
+                todayStartUtcMs = nextMidnight,
+                yesterdayStartUtcMs = localMidnight,
+                last7DaysStartUtcMs = nextMidnight - (6 * 86_400_000),
+            });
+
+        Assert.Equal(0, tomorrow.Usage.TodayActiveSeconds);
+        Assert.Equal(40 * 60, tomorrow.Usage.YesterdayActiveSeconds);
+    }
+
+    [Fact]
+    public void A_usage_card_without_day_boundaries_is_rejected_rather_than_guessed()
+    {
+        // Zero is what a missing boundary deserialises to, and zero would make
+        // every session ever recorded part of "today".
+        using var trace = new PersistenceHarness();
+        trace.NewEngine().Start().Switch("chrome.exe", "YouTube").AdvanceMinutes(20).ShutDown();
+
+        var error = Error(
+            NewRouter(trace),
+            IpcMethods.ApplicationsGetDetail,
+            new
+            {
+                applicationId = 1,
+                fromUtcMs = EngineHarness.DayStartUtcMs,
+                toUtcMs = EngineHarness.DayStartUtcMs + 86_400_000,
+            });
+
+        Assert.Equal(IpcErrorCode.E_BAD_PARAMS, error.Code);
+    }
+
+    [Fact]
     public void Analytics_state_every_figure_the_page_shows()
     {
         using var trace = new PersistenceHarness();

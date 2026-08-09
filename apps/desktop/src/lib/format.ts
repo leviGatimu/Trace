@@ -1,4 +1,4 @@
-import type { ClockFormat, DayRange } from '@trace/contracts';
+import type { ClockFormat, DayRange, UsagePeriods } from '@trace/contracts';
 
 /**
  * Formatting only.
@@ -173,6 +173,22 @@ export function addDays(day: Date, days: number): Date {
 
 export function isSameLocalDay(a: Date, b: Date): boolean {
   return startOfLocalDay(a).getTime() === startOfLocalDay(b).getTime();
+}
+
+/**
+ * Where Today, Yesterday and the last seven days begin, in local time.
+ *
+ * Computed here because this is the side that has a locale. The seven-day
+ * window counts back six days from today's midnight, so it includes today.
+ */
+export function localUsagePeriods(now: Date = new Date()): UsagePeriods {
+  const today = startOfLocalDay(now);
+
+  return {
+    todayStartUtcMs: today.getTime(),
+    yesterdayStartUtcMs: addDays(today, -1).getTime(),
+    last7DaysStartUtcMs: addDays(today, -6).getTime(),
+  };
 }
 
 /**
