@@ -35,6 +35,7 @@ interface TraceBridge {
   chooseExportPath(): Promise<string | null>;
   openFolder(folder: string): Promise<string>;
   onConnectionState(handler: (state: ConnectionState) => void): () => void;
+  onNavigate(handler: (route: string) => void): () => void;
   onPush(handler: (message: { event: string; data: unknown }) => void): () => void;
 }
 
@@ -124,4 +125,7 @@ export const bridge = {
   restartTracker: () => window.trace.restartTracker(),
   chooseExportPath: () => window.trace.chooseExportPath(),
   openFolder: (folder: string) => window.trace.openFolder(folder),
+  onNavigate: (handler: (route: string) => void) =>
+    // Optional so a stale preload — or a test bridge — cannot break the window.
+    window.trace.onNavigate?.(handler) ?? (() => {}),
 };

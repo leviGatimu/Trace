@@ -737,14 +737,24 @@ Resolved here; no action needed unless noted.
     shows it is needed.
 14. **Window-title churn** (found at Milestone 4, resolved in §7) — machine-driven
     title updates would have produced tens of thousands of useless rows a day.
-15. **Published tracker size: 136 MB.** Self-contained single-file win-x64 with
-    WinForms and the full BCL. Combined with Electron the installer would be
-    around 300 MB — large, though not unusual for an Electron product. Options
-    for Milestone 8, in order of preference: enable trimming (Trace uses only
-    `NotifyIcon` and `NativeWindow` from WinForms, so the saving is large) and
-    verify SQLitePCLRaw still resolves its provider; or ship framework-dependent
-    and have the installer carry the .NET runtime. Not addressed now because the
-    binary is correct and Milestone 8 owns installer size.
+15. **Published tracker size: 136 MB**, which dominates the 132 MB installer.
+    Self-contained single-file win-x64 with WinForms and the full BCL.
+
+    **Trimming is not available**: Windows Forms does not support it, and the
+    tracker uses WinForms for `NotifyIcon` and `NativeWindow`. Two routes remain,
+    neither taken at Milestone 8 because both are refactors and the binary is
+    correct as it stands:
+    - Replace WinForms with raw Win32 — `Shell_NotifyIcon` plus `TrackPopupMenu`
+      for the tray, and a hand-rolled window class for the message-only window.
+      That would make the tracker trimmable, plausibly 30–40 MB, taking the
+      installer to roughly 50 MB. Perhaps 200 lines of P/Invoke.
+    - Ship framework-dependent (~2 MB) and have the installer carry the .NET
+      runtime, which trades download size for a prerequisite and a longer
+      install.
+
+    Recorded here rather than fixed silently: 132 MB is heavy beside Slack
+    (~70 MB) and VS Code (~90 MB), and it is a product decision what to pay for
+    it.
 
 ---
 

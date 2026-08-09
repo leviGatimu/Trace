@@ -7,6 +7,7 @@ using Trace.Tracker.Engine;
 using Trace.Tracker.Ipc;
 using Trace.Tracker.Privacy;
 using Trace.Tracker.Settings;
+using Trace.Tracker.Tray;
 using Trace.Tracker.Windows;
 
 namespace Trace.Tracker;
@@ -31,6 +32,7 @@ internal static class TrackerHost
 
     private static SignalQueue? _queue;
     private static PipeServer? _ipc;
+    private static TrayIcon? _tray;
     private static SessionEngine? _engine;
     private static TraceDatabase? _database;
     private static SettingsStore? _settings;
@@ -170,7 +172,24 @@ internal static class TrackerHost
         gate.Degraded += _ => ipc.Broadcast(
             PushEvents.StateChanged, new { state = nameof(TrackingState.DEGRADED) });
 
-        // TODO(Milestone 8): create the tray icon.
+        using var tray = new TrayIcon(
+            onPause: () => SetTracking(settings, queue, clock, enabled: false),
+            onResume: () => SetTracking(settings, queue, clock, enabled: true),
+            onQuit: RequestQuit);
+
+        _tray = tray;
+        tray.Update(engine.State, settings.Current.TrackingEnabled);
+
+        // The tray reflects state changes from anywhere — the dashboard, the
+        // tray itself, or the engine going idle — so the icon can never disagree
+        // with what Trace is actually doing.
+        settings.Changed += updated => tray.Update(engine.State, updated.TrackingEnabled);
+
+        using var trayRefresh = new System.Threading.Timer(
+            _ => tray.Update(engine.State, settings.Current.TrackingEnabled),
+            null,
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(5));
 
         Log.Info(
             $"Tracker running. Tracking is {(settings.Current.TrackingEnabled ? "on" : "paused")}.");
@@ -192,6 +211,39 @@ internal static class TrackerHost
     {
         Shutdown(EndReason.CRASH_RECOVERY);
         Application.ExitThread();
+    }
+
+    /// <summary>
+    /// "Quit Trace" from the tray.
+    ///
+    /// Distinct from pausing (DOCS/Windows Integration §12): quitting stops the
+    /// tracker entirely, whereas pausing leaves it running and recording
+    /// nothing. Quitting is temporary in the sense that startup will bring it
+    /// back at the next sign-in if that is enabled — pausing is the one that
+    /// persists, which is the right way round.
+    ///
+    /// No confirmation dialog. §10 asks to avoid nagging for ordinary actions,
+    /// and the tray icon disappearing is unmistakable feedback.
+    /// </summary>
+    private static void RequestQuit()
+    {
+        Log.Info("Quit requested from the tray.");
+        Shutdown(EndReason.TRACKING_PAUSED);
+        Application.ExitThread();
+    }
+
+    /// <summary>
+    /// Pause and resume from the tray, taking exactly the path the dashboard
+    /// takes: write the setting first, then signal the engine. One code path,
+    /// so the two controls cannot behave differently.
+    /// </summary>
+    private static void SetTracking(
+        SettingsStore settings, SignalQueue queue, IClock clock, bool enabled)
+    {
+        settings.Update(current => current with { TrackingEnabled = enabled });
+
+        var now = clock.UtcNowMs;
+        queue.Post(enabled ? new ResumeRequested(now) : new PauseRequested(now));
     }
 
     /// <summary>
@@ -250,6 +302,10 @@ internal static class TrackerHost
 
         try
         {
+            // The icon goes first: the moment Trace stops recording, it should
+            // stop claiming to.
+            _tray?.Dispose();
+
             // Stop answering before stopping recording, so a client is never
             // served a half-shut-down view of the world.
             _ipc?.DisposeAsync().AsTask().GetAwaiter().GetResult();

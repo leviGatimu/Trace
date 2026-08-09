@@ -15,6 +15,10 @@ artifacts/
 # Build output
 build-output/
 
+# The packaged installer. Hundreds of megabytes of build product, rebuildable
+# from source with `npm run installer` — it does not belong in history.
+installer/
+
 # Local environment
 .env
 .env.local

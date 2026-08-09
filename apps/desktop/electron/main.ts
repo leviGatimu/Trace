@@ -11,6 +11,7 @@ const devServerUrl = process.env['VITE_DEV_SERVER_URL'];
 
 const client = new TrackerClient();
 let mainWindow: BrowserWindow | null = null;
+let hasTriedStartingTracker = false;
 
 /**
  * Only one dashboard. A second launch — from the Start menu, or from the tray's
@@ -19,8 +20,29 @@ let mainWindow: BrowserWindow | null = null;
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => showWindow());
+  app.on('second-instance', (_event, argv) => {
+    showWindow();
+
+    // The tray passes --route=/settings when the user picks Settings. Honouring
+    // it on the second instance is what makes those menu items land where they
+    // say they will, whether or not a window was already open.
+    const route = routeFromArgv(argv);
+    if (route) {
+      mainWindow?.webContents.send('trace:navigate', route);
+    }
+  });
+
   void start();
+}
+
+function routeFromArgv(argv: readonly string[]): string | null {
+  const argument = argv.find((value) => value.startsWith('--route='));
+  const route = argument?.slice('--route='.length);
+
+  // Only in-application paths. An argument that could send the window to an
+  // arbitrary URL would be a way to turn a tray click into a navigation
+  // primitive.
+  return route && route.startsWith('/') && !route.startsWith('//') ? route : null;
 }
 
 async function start(): Promise<void> {
@@ -31,6 +53,16 @@ async function start(): Promise<void> {
 
   client.on('state', (state: ConnectionState) => {
     mainWindow?.webContents.send('trace:state', state);
+
+    // First run after installing, nothing has started the tracker yet, and the
+    // first thing a new user would otherwise see is "Tracker unavailable" —
+    // which is both alarming and their problem to solve. Opening the dashboard
+    // starts it, once. If that fails, the manual button takes over rather than
+    // this retrying forever.
+    if (state.status === 'unavailable' && !hasTriedStartingTracker) {
+      hasTriedStartingTracker = true;
+      restartTracker();
+    }
   });
 
   client.on('push', (event: string, data: unknown) => {
@@ -81,7 +113,14 @@ function createWindow(): void {
   });
 
   // Shown only once painted, so launching never flashes an empty white frame.
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
+
+    const route = routeFromArgv(process.argv);
+    if (route) {
+      mainWindow?.webContents.send('trace:navigate', route);
+    }
+  });
   mainWindow.on('closed', () => {
     mainWindow = null;
   });

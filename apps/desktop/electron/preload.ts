@@ -36,6 +36,13 @@ const api = {
     return () => ipcRenderer.off('trace:state', listener);
   },
 
+  /** The tray asking for a particular page. */
+  onNavigate(handler: (route: string) => void) {
+    const listener = (_event: unknown, route: string) => handler(route);
+    ipcRenderer.on('trace:navigate', listener);
+    return () => ipcRenderer.off('trace:navigate', listener);
+  },
+
   onPush(handler: (message: { event: string; data: unknown }) => void) {
     const listener = (_event: unknown, message: { event: string; data: unknown }) =>
       handler(message);

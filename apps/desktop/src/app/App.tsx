@@ -6,7 +6,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { HashRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { Onboarding } from '@/components/Onboarding';
 import { useConnection } from '@/hooks/useTracker';
 import { bridge, trace } from '@/services/trace';
@@ -108,6 +108,15 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
   return <Onboarding onComplete={complete.mutate} busy={complete.isPending} />;
 }
 
+/** Follows the page the tray asked for. Must live inside the router. */
+function TrayNavigation() {
+  const navigate = useNavigate();
+
+  useEffect(() => bridge.onNavigate((route) => navigate(route)), [navigate]);
+
+  return null;
+}
+
 export function App() {
   // Created per mount rather than at module scope, so the cache belongs to the
   // running application instead of to the module — which also means one test
@@ -123,6 +132,7 @@ export function App() {
           browser history paths do not resolve.
         */}
         <HashRouter>
+          <TrayNavigation />
           <Routes>
             <Route element={<Shell />}>
               <Route path="/" element={<OverviewPage />} />

@@ -1,0 +1,51 @@
+appId: com.trace.desktop
+productName: Trace
+copyright: Trace
+
+# Stated explicitly because Electron is hoisted to the workspace root, where
+# electron-builder cannot resolve the range in this package's dependencies.
+electronVersion: 43.3.0
+
+directories:
+  output: ../../installer
+  buildResources: build
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+  # Source maps are for developing, not for shipping: 1.5 MB of them, and they
+  # hand a reader the original source of a privacy product for no benefit.
+  - '!**/*.map'
+
+# The tracker travels with the dashboard but is not part of it: a separate
+# executable, in its own folder, started and stopped independently. This is the
+# separation the whole architecture rests on, expressed in the layout.
+extraResources:
+  - from: ../tracker/Trace.Tracker/bin/Release/net10.0-windows10.0.17763.0/win-x64/publish/TraceTracker.exe
+    to: tracker/TraceTracker.exe
+
+win:
+  icon: ../../brand/trace.ico
+  target:
+    - target: nsis
+      arch: [x64]
+  # No code signing yet. DOCS/Windows Integration §32 plans it for a polished
+  # public release; until then SmartScreen will warn, and pretending otherwise
+  # would be worse than saying so.
+
+nsis:
+  # Per-user, so installing never shows a UAC prompt (implementation plan §14D).
+  # It also keeps the whole product — binaries, data, startup entry — inside one
+  # Windows account, which is what makes the per-user isolation real.
+  perMachine: false
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Trace
+  artifactName: Trace-Setup-${version}.${ext}
+  uninstallDisplayName: Trace
+  include: build/installer.nsh
+  # Removes the startup entry and stops the tracker before files are deleted.
+  deleteAppDataOnUninstall: false

@@ -7,10 +7,10 @@ Following `DOCS/IMPLEMENTATION-PLAN.md`, which is derived from `DOCS/` and is th
 binding technical spec.
 
 ## Status
-**In progress — Milestones 1–7 complete and verified.**
-Trace runs end to end with working privacy controls. Exclusion verified
-empirically: an excluded application used for 18 seconds left no row anywhere.
-Next up: Milestone 8, Windows integration (tray, installer, uninstall).
+**In progress — Milestones 1–8 complete and verified.**
+Trace is installable: `installer\Trace-Setup-0.1.0.exe` (132 MB). Install →
+launch → tray → uninstall all verified on this machine.
+Next up: Milestone 9, hardening.
 
 ## Progress
 - [x] Documentation audit; `DOCS/IMPLEMENTATION-PLAN.md`; 5 decisions resolved
@@ -36,8 +36,13 @@ Next up: Milestone 8, Windows integration (tray, installer, uninstall).
       delete-everything behind a typed confirmation, onboarding consent flow,
       and a real `HKCU\...\Run` startup registration. **95 tests** (74 tracker,
       21 UI).
-- [ ] **Milestone 8 — Windows integration** (next)
-- [ ] Milestones 9–10
+- [x] **Milestone 8 — Windows integration**: logo and icons generated from code
+      (`tools/Trace.IconForge`), tray icon owned by the tracker with pause /
+      resume / open / quit, `--route` navigation from the tray, NSIS per-user
+      installer, uninstall data choice, and auto-start of the tracker on first
+      launch. Installer built, installed, run and uninstalled cleanly.
+- [ ] **Milestone 9 — hardening** (next)
+- [ ] Milestone 10 — polish
 
 ## Working Notes
 
@@ -59,7 +64,12 @@ TraceTracker.exe --help
 
 cd apps/desktop && npm run dev     # dashboard against the running tracker
 cd apps/desktop && npm run build   # dist/ (renderer) + dist-electron/ (main, preload)
+
+npm run installer                  # everything -> installer\Trace-Setup-<v>.exe
 ```
+`npm run installer` runs the icon forge, publishes the tracker, runs both test
+suites, builds the dashboard and packages. It stops any running Trace processes
+first, because the installer cannot replace files that are in use.
 Start the tracker first; without it the dashboard shows its "Tracker
 unavailable / Restart Tracker" state, which is worth seeing at least once.
 Data lives in `%LOCALAPPDATA%\Trace`. There is real activity data there from
@@ -176,25 +186,54 @@ development testing; delete `Data\activity.db*` to start clean.
 - `settings.json` is only written on first save, so a fresh install has no file
   until something changes. Worth remembering when scripting a test.
 
-### Exact next step on resume
-**Milestone 8 — Windows integration.** The milestone that turns this into
-something someone can install.
+### Milestone 8 notes
+- **The logo is generated from code** (`tools/Trace.IconForge`), not checked in
+  as an opaque binary: a "T" whose stem ends in a bright node — the trace it
+  leaves. `brand/trace-preview.png` shows it at 16–32 px, which is the size that
+  actually decides whether a tray icon works.
+- **The tray belongs to the tracker.** Pause therefore works with the dashboard
+  closed or crashed, and Electron is not resident just to draw an icon. Pause
+  from the tray takes the identical path to the dashboard's — write the setting,
+  then signal the engine — so the two cannot diverge.
+- **Trace.exe starts the tracker once** if it cannot connect. Without it, the
+  first thing a newly installed user saw was "Tracker unavailable".
+- **`--route=/settings`** from the tray is honoured on the second instance, and
+  validated to in-application paths so a tray click cannot become a navigation
+  primitive.
+- **Uninstall** removes binaries, the shortcut and the `Run` entry, stops the
+  tracker, and asks before touching history. **Verified**: install → launch →
+  auto-start tracker → uninstall → history preserved, no dangling startup entry.
+- The uninstall prompt offers **Keep / Delete**, not the Keep / Export / Delete
+  of `DOCS/Privacy.md` §23. Exporting from an uninstaller that is deleting the
+  application is awkward; the message instead names the data folder so the user
+  can copy it. Export lives in Settings, where the app still exists.
+- **`electronVersion` is pinned in `electron-builder.yml`** — Electron is hoisted
+  to the workspace root, where electron-builder cannot resolve a range.
+- **The renderer's libraries are devDependencies.** Vite bundles them; listing
+  them as runtime dependencies made electron-builder copy node_modules in as
+  well, and `app.asar` was 35 MB instead of 0.3 MB.
+- Careful with PowerShell `Set-Content -Encoding utf8`: it writes a BOM, which
+  made `package.json` unparseable to Vite. Use the file-writing tools instead.
 
-1. **Tray icon, owned by the tracker** (plan §10): status line, Open Trace,
-   Pause/Resume, Today's Activity, Settings, Quit Trace. `NotifyIcon` on the
-   existing message pump. Pause from the tray must go through the same path as
-   the dashboard's.
-2. **Quit vs Close**: closing the window already quits `Trace.exe` only; the
-   tray's Quit must stop the tracker, closing the open session cleanly.
-3. **Installer**: `electron-builder` NSIS, `perMachine: false`,
-   `extraResources` carrying `TraceTracker.exe` into `resources/tracker/`.
-   Per-user install to `%LOCALAPPDATA%\Programs\Trace` (decision D).
-4. **Uninstall data choice** (`DOCS/Privacy.md` §23): Keep / Export / Delete,
-   as a custom NSIS page. Stop the tracker first.
-5. **Installer size**: the tracker publishes at 136 MB self-contained. Try
-   trimming first and verify SQLitePCLRaw still resolves its provider.
-6. Verify: clean install → reboot → tracking running → open from tray →
-   uninstall with each of the three data choices.
+### Exact next step on resume
+**Milestone 9 — hardening.** The list is in the plan §12; the ones that matter
+most here, in order:
+
+1. **Long-running soak**: 72 h with an automated switch driver, watching memory,
+   handle count, database growth and `active + idle` consistency. The Win32 hook
+   re-scoping on every foreground change is the most likely handle leak.
+2. **Sleep / wake and lock / unlock cycles** on real hardware — the paths that
+   cannot be faked, and the ones most likely to produce a session spanning an
+   absence.
+3. **Windows restart**, both clean and by pulling power: verify
+   `SYSTEM_SHUTDOWN` versus `CRASH_RECOVERY`, and that the run marker behaves.
+4. **Large history**: seed a few hundred thousand sessions and profile the
+   read models. `search.query` uses `LIKE '%…%'` and is the first thing expected
+   to slow down; FTS5 with a trigram tokenizer is the fallback (plan §13.13).
+5. **Multiple Windows accounts**: two users tracking at once, verifying separate
+   databases and that neither pipe is reachable from the other account.
+6. **Database corruption**: truncate `activity.db` mid-run and confirm the
+   quarantine path leaves the damaged file intact and starts fresh.
 
 ## Recently Completed
 - Milestone 4 — database, privacy gate, settings, crash recovery (2026-08-09).

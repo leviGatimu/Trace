@@ -1,8 +1,10 @@
 {
-  "name": "@trace/desktop",
+  "name": "trace",
+  "productName": "Trace",
   "version": "0.1.0",
   "private": true,
-  "description": "Trace.exe — the Trace desktop interface.",
+  "description": "Your computer, remembered. A private, local activity history.",
+  "author": "Trace",
   "main": "dist-electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -12,15 +14,14 @@
     "test": "vitest run",
     "package": "npm run build && electron-builder --win --publish never"
   },
-  "dependencies": {
+  "//dependencies": "Intentionally empty. Everything the interface uses is bundled into dist/ by Vite, and the Electron main process imports nothing but Node built-ins and electron itself. Listing them as runtime dependencies would make electron-builder copy node_modules into the package as well, which put 33 MB of already-bundled React into app.asar.",
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.101.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",
-    "recharts": "^3.10.1"
-  },
-  "devDependencies": {
-    "@tailwindcss/vite": "^4.3.3",
+    "recharts": "^3.10.1",
     "@testing-library/react": "^16.3.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.2.0",

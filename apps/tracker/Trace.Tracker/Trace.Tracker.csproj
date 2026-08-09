@@ -8,6 +8,7 @@
       No forms are ever created.
     -->
     <OutputType>WinExe</OutputType>
+    <ApplicationIcon>..\..\..\brand\trace.ico</ApplicationIcon>
     <!--
       The platform version must be stated in the TFM, not only in
       SupportedOSPlatformVersion. 10.0.17763 is Windows 10 1809 — the oldest
@@ -69,6 +70,17 @@
   <ItemGroup>
     <!-- Migrations ship inside the binary so they can never desync from code. -->
     <EmbeddedResource Include="Data\Migrations\*.sql" />
+
+    <!--
+      Tray icons embedded rather than shipped alongside: the tracker must be
+      able to show its state even if someone has been tidying the install
+      directory, and a missing icon file would leave a background process with
+      no way to say it is running.
+    -->
+    <EmbeddedResource Include="..\..\..\brand\trace-tray.ico"
+                      LogicalName="Trace.Tracker.trace-tray.ico" />
+    <EmbeddedResource Include="..\..\..\brand\trace-tray-paused.ico"
+                      LogicalName="Trace.Tracker.trace-tray-paused.ico" />
   </ItemGroup>
 
   <ItemGroup>
