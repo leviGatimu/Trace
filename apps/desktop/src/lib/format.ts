@@ -93,6 +93,23 @@ export function clockTimeWithSeconds(utcMs: number): string {
   });
 }
 
+/**
+ * An hour of the day for a chart axis, e.g. `09` or `9 AM`.
+ *
+ * Built from a real date at that hour rather than by concatenating a number, so
+ * it follows the same clock preference as every other time on screen. A 24-hour
+ * axis under a 12-hour interface would be the one place Trace disagreed with
+ * itself.
+ */
+export function hourLabel(hour: number): string {
+  const at = new Date();
+  at.setHours(hour, 0, 0, 0);
+
+  return at
+    .toLocaleTimeString(undefined, { hour: hour12() ? 'numeric' : '2-digit', hour12: hour12() })
+    .replace(':00', '');
+}
+
 export function longDate(utcMs: number): string {
   return new Date(utcMs).toLocaleDateString(undefined, {
     weekday: 'long',

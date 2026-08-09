@@ -8,13 +8,10 @@ binding technical spec.
 
 ## Status
 **In progress — Milestones 1–8 complete and verified; Milestone 9 part-done;
-first V2 feature (Calendar) built.**
+first V2 slice (Calendar + Analytics) built.**
 Trace is installable: `installer\Trace-Setup-0.1.0.exe` (132 MB). Install →
 launch → tray → uninstall all verified on this machine.
-114 tests pass (88 tracker, 26 dashboard).
-
-**The installed copy is older than the working tree** — it predates the
-Calendar. Repackage before judging anything by the installed app.
+120 tests pass (91 tracker, 29 dashboard).
 
 ## Progress
 - [x] Documentation audit; `DOCS/IMPLEMENTATION-PLAN.md`; 5 decisions resolved
@@ -48,7 +45,8 @@ Calendar. Repackage before judging anything by the installed app.
 - [~] **Milestone 9 — hardening** (in progress): large-history profiling and
       database-corruption recovery done; soak running; physical lock / sleep /
       restart tests and the two-Windows-accounts test still to do
-- [~] **V2** (`DOCS/MVPV2.md`): **Calendar done**. Analytics next.
+- [~] **V2** (`DOCS/MVPV2.md`): **Calendar and Analytics done.** Next candidates
+      from the doc: categories, rules, favourites, notes, reports.
 - [ ] Milestone 10 — polish
 
 ## Working Notes
@@ -292,6 +290,24 @@ rewritten; its page structure and behaviour still stand.
   lets the calendar link into it. `replace`, not `push`, so stepping through a
   week with the arrows does not build a week of back history.
 
+### V2 — Analytics (done)
+- `analytics.getSummary` takes the same day boundaries as the calendar. Every
+  figure the page shows is in the response — averages, busiest day, longest
+  session included — so the page formats and never derives. `AnalyticsPage.test`
+  returns an average that deliberately does not follow from the day totals, so
+  the test fails if anyone later has the page do its own arithmetic.
+- **Hour-of-day needs no timezone**: an hour's place in the day is how many
+  hours it sits after that day's supplied midnight. A 25-hour daylight-saving
+  day folds its extra hour into 23 rather than inventing a column.
+- Only sessions that *began* inside the span are counted, matching the calendar,
+  so the headline total always equals the sum of the day bars.
+- Periods are **this week / this month / this year, to date**. Daily analytics
+  lives on Overview, which already answers the same question for one day;
+  averaging today's four hours over a whole month would report on days that have
+  not happened.
+- Bars are capped at 40px wide. Un-capped, a week of seven bars across a
+  1,080-pixel row is a wall, and a single day fills the row edge to edge.
+
 ### Found while verifying the calendar — not yet fixed
 **`applications.getDetail`'s Today / Yesterday / Last 7 days figures use UTC
 midnight, not the user's local midnight** (`ActivityQueries.ReadUsage`:
@@ -302,9 +318,9 @@ caller, as they do everywhere else. Fixing it is a contract change:
 `applications.getDetail` needs the day boundaries in its params.
 
 ### Exact next step on resume
-1. **Fix the UTC-midnight bug above**, or get a decision to defer it.
-2. **V2 Analytics**, the other half of the agreed first slice.
-3. **Finish Milestone 9.** The list is in the plan §12; what is left, in order:
+1. **Fix the UTC-midnight bug above.** Deferred once by the owner in favour of
+   Analytics; it is still wrong for anyone not on UTC.
+2. **Finish Milestone 9.** The list is in the plan §12; what is left, in order:
 
    - **Soak** (`scripts/soak.ps1`, passive, samples every 60 s to
      `%LOCALAPPDATA%\Trace\Logs\soak.csv`): started 2026-08-10 00:16, runs 8 h.
@@ -321,6 +337,8 @@ caller, as they do everywhere else. Fixing it is a contract change:
      database-corruption quarantine.
 
 ## Recently Completed
+- V2 Analytics — week / month / year to date, active time by day, hour-of-day
+  histogram, longest stretch, most used (2026-08-10).
 - V2 Calendar — month grid, `activity.getCalendar`, deep link into the timeline
   (2026-08-10).
 - Clock columns widened so 12-hour times stop wrapping onto two lines

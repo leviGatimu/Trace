@@ -115,6 +115,7 @@ export type IpcMethod =
   | 'activity.getDay'
   | 'activity.getTimeline'
   | 'activity.getCalendar'
+  | 'analytics.getSummary'
   | 'applications.list'
   | 'applications.getDetail'
   | 'sessions.getDetail'
@@ -136,6 +137,7 @@ export const IPC_METHODS: readonly IpcMethod[] = [
   'activity.getDay',
   'activity.getTimeline',
   'activity.getCalendar',
+  'analytics.getSummary',
   'applications.list',
   'applications.getDetail',
   'sessions.getDetail',
@@ -232,6 +234,54 @@ export interface CalendarDay {
   activeSeconds: number;
   sessionCount: number;
   applicationCount: number;
+}
+
+/**
+ * Analytics over a set of days.
+ *
+ * Same shape as `CalendarQuery`, and for the same reason: the client owns the
+ * local-day boundaries. Hour-of-day is derived from them too — an hour's index
+ * is how many hours it sits after that day's midnight — so the tracker can
+ * build a by-hour picture without ever being told a timezone.
+ */
+export interface AnalyticsQuery {
+  /** Local midnights as UTC milliseconds, ascending. At most 400. */
+  dayStartsUtcMs: number[];
+}
+
+export interface AnalyticsSummary {
+  fromUtcMs: number;
+  toUtcMs: number;
+  activeSeconds: number;
+  idleSeconds: number;
+  applicationCount: number;
+  sessionCount: number;
+  /** Days with any activity on them. The average is over these, not over the span. */
+  recordedDayCount: number;
+  averageActiveSecondsPerRecordedDay: number;
+  /** One entry per day asked for, in order. */
+  days: CalendarDay[];
+  /** The busiest day's local midnight, or null when nothing was recorded. */
+  busiestDayStartUtcMs: number | null;
+  /** 24 entries, hour 0–23 of the local day, summed across the span. */
+  hours: AnalyticsHour[];
+  /** Ordered by active time, at most 8. */
+  topApplications: ApplicationSummary[];
+  longestSession: LongestSession | null;
+}
+
+export interface AnalyticsHour {
+  hour: number;
+  activeSeconds: number;
+}
+
+export interface LongestSession {
+  sessionId: number;
+  applicationId: number;
+  applicationName: string;
+  executable: string;
+  startedAt: number;
+  activeSeconds: number;
 }
 
 export interface TimelineQuery extends DayRange {

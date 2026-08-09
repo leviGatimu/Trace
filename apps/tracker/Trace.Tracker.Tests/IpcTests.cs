@@ -312,6 +312,96 @@ public class IpcTests
     }
 
     [Fact]
+    public void Analytics_state_every_figure_the_page_shows()
+    {
+        using var trace = new PersistenceHarness();
+        var engine = trace.NewEngine();
+
+        // Day one: 30 minutes of Chrome, then an hour of VS Code.
+        engine.Start()
+            .Switch("chrome.exe", "YouTube").AdvanceMinutes(30)
+            .Switch("code.exe", "main.ts").AdvanceMinutes(60)
+            .ShutDown();
+
+        // Day two: 20 minutes of Chrome, so day one is the busier of the two.
+        engine.Advance(TimeSpan.FromHours(24));
+        engine.PlaceInForeground("chrome.exe", "GitHub").Resume();
+        engine.AdvanceMinutes(20).ShutDown();
+
+        var days = new[] { EngineHarness.DayStartUtcMs, EngineHarness.DayStartUtcMs + 86_400_000 };
+
+        var summary = Ok<AnalyticsSummary>(
+            NewRouter(trace), IpcMethods.AnalyticsGetSummary, new { dayStartsUtcMs = days });
+
+        Assert.Equal(110 * 60, summary.ActiveSeconds);
+        Assert.Equal(2, summary.ApplicationCount);
+        Assert.Equal(3, summary.SessionCount);
+
+        // Averaged over the days that have something on them, not over the span.
+        Assert.Equal(2, summary.RecordedDayCount);
+        Assert.Equal(55 * 60, summary.AverageActiveSecondsPerRecordedDay);
+        Assert.Equal(EngineHarness.DayStartUtcMs, summary.BusiestDayStartUtcMs);
+
+        Assert.Equal(90 * 60, summary.Days[0].ActiveSeconds);
+        Assert.Equal(20 * 60, summary.Days[1].ActiveSeconds);
+
+        // The page states these rather than working them out for itself.
+        Assert.Equal("code.exe", summary.LongestSession!.Executable);
+        Assert.Equal(60 * 60, summary.LongestSession.ActiveSeconds);
+        // Ordered by time across the whole span, not by the last day: Chrome's
+        // 30 and 20 minutes are one 50-minute total behind VS Code's hour.
+        Assert.Equal("code.exe", summary.TopApplications[0].Executable);
+        Assert.Equal(60 * 60, summary.TopApplications[0].ActiveSeconds);
+        Assert.Equal("chrome.exe", summary.TopApplications[1].Executable);
+        Assert.Equal(50 * 60, summary.TopApplications[1].ActiveSeconds);
+    }
+
+    [Fact]
+    public void Analytics_spread_a_session_across_the_hours_of_the_day_it_covered()
+    {
+        // The scripted day starts at 08:00 in the harness's frame of reference,
+        // so a three-hour session from then fills 08, 09 and 10 — not one tall
+        // column at 08 for something that was still going at 10:30.
+        using var trace = new PersistenceHarness();
+        var engine = trace.NewEngine();
+
+        var dayStart = EngineHarness.DayStartUtcMs - (8 * 3_600_000);
+
+        engine.Start().Switch("code.exe", "main.ts").Advance(TimeSpan.FromHours(3)).ShutDown();
+
+        var summary = Ok<AnalyticsSummary>(
+            NewRouter(trace), IpcMethods.AnalyticsGetSummary, new { dayStartsUtcMs = new[] { dayStart } });
+
+        Assert.Equal(24, summary.Hours.Count);
+        Assert.Equal(Enumerable.Range(0, 24), summary.Hours.Select(h => h.Hour));
+
+        Assert.Equal(3600, summary.Hours[8].ActiveSeconds);
+        Assert.Equal(3600, summary.Hours[9].ActiveSeconds);
+        Assert.Equal(3600, summary.Hours[10].ActiveSeconds);
+        Assert.Equal(0, summary.Hours[11].ActiveSeconds);
+        Assert.Equal(3 * 3600, summary.Hours.Sum(h => h.ActiveSeconds));
+    }
+
+    [Fact]
+    public void Analytics_report_an_empty_span_as_empty_rather_than_as_a_failure()
+    {
+        using var trace = new PersistenceHarness();
+
+        var summary = Ok<AnalyticsSummary>(
+            NewRouter(trace),
+            IpcMethods.AnalyticsGetSummary,
+            new { dayStartsUtcMs = new[] { EngineHarness.DayStartUtcMs } });
+
+        Assert.Equal(0, summary.ActiveSeconds);
+        Assert.Equal(0, summary.RecordedDayCount);
+        Assert.Equal(0, summary.AverageActiveSecondsPerRecordedDay);
+        Assert.Null(summary.BusiestDayStartUtcMs);
+        Assert.Null(summary.LongestSession);
+        Assert.Empty(summary.TopApplications);
+        Assert.Equal(24, summary.Hours.Count);
+    }
+
+    [Fact]
     public void A_calendar_request_with_no_days_is_rejected()
     {
         using var trace = new PersistenceHarness();

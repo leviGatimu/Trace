@@ -128,17 +128,30 @@ internal sealed class ActivityQueries
         }
 
         var days = dayStartsUtcMs.OrderBy(day => day).ToList();
+        var end = SpanEnd(days);
 
-        // The final boundary is unknown — the caller sends starts, not an end —
-        // so assume the last day is as long as the one before it, falling back
-        // to 24 hours for a single-day request.
-        var lastLength = days.Count > 1 ? days[^1] - days[^2] : 86_400_000;
-        var end = days[^1] + lastLength;
+        return BuildDays(days, ReadSpan(days[0], end, minSessionSeconds, nowUtcMs));
+    }
 
-        var merged = _database.Read(connection =>
+    /// <summary>
+    /// The end of a span given only its day starts.
+    ///
+    /// The caller sends starts, not an end, so the last day is assumed to be as
+    /// long as the one before it — which is right even when a daylight-saving
+    /// change made the others 23 or 25 hours. A single-day request has nothing
+    /// to compare against and falls back to 24 hours.
+    /// </summary>
+    private static long SpanEnd(List<long> days) =>
+        days[^1] + (days.Count > 1 ? days[^1] - days[^2] : 86_400_000);
+
+    private List<MergedSession> ReadSpan(
+        long fromUtcMs, long toUtcMs, int minSessionSeconds, long nowUtcMs) =>
+        _database.Read(connection =>
             SessionMerger.Merge(
-                ReadSessionsOverlapping(connection, days[0], end), minSessionSeconds, nowUtcMs));
+                ReadSessionsOverlapping(connection, fromUtcMs, toUtcMs), minSessionSeconds, nowUtcMs));
 
+    private static List<CalendarDay> BuildDays(List<long> days, List<MergedSession> merged)
+    {
         var active = new int[days.Count];
         var sessions = new int[days.Count];
         var applications = new HashSet<long>[days.Count];
@@ -175,6 +188,125 @@ internal sealed class ActivityQueries
     {
         var index = dayStarts.BinarySearch(atUtcMs);
         return index >= 0 ? index : ~index - 1;
+    }
+
+    // -- analytics ----------------------------------------------------------
+
+    /// <summary>
+    /// Everything the analytics page states, computed here so the page only
+    /// formats it (DOCS/data and database.md §26). That includes the averages
+    /// and the busiest day: a figure the UI worked out itself is a second place
+    /// the product can be wrong about how long you used something.
+    ///
+    /// Only sessions that *began* inside the span are counted, matching the
+    /// calendar. Otherwise a session already running when the span opened would
+    /// be in the headline total but on none of the day bars, and the picture
+    /// would not add up.
+    /// </summary>
+    public AnalyticsSummary GetAnalytics(
+        IReadOnlyList<long> dayStartsUtcMs, int minSessionSeconds, long nowUtcMs)
+    {
+        var days = dayStartsUtcMs.OrderBy(day => day).ToList();
+        var end = SpanEnd(days);
+
+        var merged = ReadSpan(days[0], end, minSessionSeconds, nowUtcMs)
+            .Where(session => session.StartedAt >= days[0] && session.StartedAt < end)
+            .ToList();
+
+        var byDay = BuildDays(days, merged);
+        var recorded = byDay.Where(day => day.ActiveSeconds > 0).ToList();
+        var applications = Summarise(merged, nowUtcMs);
+
+        var totalActive = merged.Sum(session => session.ActiveSeconds);
+        var longest = merged.MaxBy(session => session.ActiveSeconds);
+
+        return new AnalyticsSummary(
+            FromUtcMs: days[0],
+            ToUtcMs: end,
+            ActiveSeconds: totalActive,
+            IdleSeconds: merged.Sum(session => session.IdleSeconds),
+            ApplicationCount: applications.Count,
+            SessionCount: merged.Count,
+            RecordedDayCount: recorded.Count,
+            AverageActiveSecondsPerRecordedDay:
+                recorded.Count == 0 ? 0 : (int)Math.Round((double)totalActive / recorded.Count),
+            Days: byDay,
+            BusiestDayStartUtcMs: recorded.Count == 0
+                ? null
+                : recorded.MaxBy(day => day.ActiveSeconds)!.StartUtcMs,
+            Hours: BuildHourOfDay(days, end, merged, nowUtcMs),
+            TopApplications: applications.Take(AnalyticsSummary.TopApplicationCount).ToList(),
+            LongestSession: longest is null
+                ? null
+                : new LongestSession(
+                    longest.SessionId,
+                    longest.ApplicationId,
+                    longest.ApplicationName,
+                    longest.Executable,
+                    longest.StartedAt,
+                    longest.ActiveSeconds));
+    }
+
+    /// <summary>
+    /// Active seconds by hour of the local day, summed across the span.
+    ///
+    /// The hour boundaries are derived from the day starts the caller supplied,
+    /// so this needs no timezone: an hour's place in the day is how many hours
+    /// it sits after that day's midnight. A daylight-saving day with 23 or 25
+    /// hours therefore still lines up, and the extra hour folds into 23 rather
+    /// than inventing a twenty-fifth column.
+    ///
+    /// A session's time is spread across the hours it spans, the same
+    /// approximation <see cref="BuildHourBuckets"/> makes and for the same
+    /// reason — a three-hour session belongs to three hours, not to the one it
+    /// started in.
+    /// </summary>
+    private static List<AnalyticsHour> BuildHourOfDay(
+        List<long> days, long end, List<MergedSession> sessions, long nowUtcMs)
+    {
+        const long hourMs = 3_600_000;
+
+        var starts = new List<long>();
+        var hourOfDay = new List<int>();
+
+        for (var i = 0; i < days.Count; i++)
+        {
+            var dayEnd = i + 1 < days.Count ? days[i + 1] : end;
+
+            for (var hour = 0; days[i] + (hour * hourMs) < dayEnd; hour++)
+            {
+                starts.Add(days[i] + (hour * hourMs));
+                hourOfDay.Add(Math.Min(hour, 23));
+            }
+        }
+
+        var totals = new int[24];
+
+        foreach (var session in sessions)
+        {
+            var sessionEnd = session.EndedAt ?? nowUtcMs;
+            var spanMs = Math.Max(1, sessionEnd - session.StartedAt);
+
+            var index = starts.BinarySearch(session.StartedAt);
+            if (index < 0)
+            {
+                index = Math.Max(0, ~index - 1);
+            }
+
+            for (; index < starts.Count && starts[index] < sessionEnd; index++)
+            {
+                var overlapMs =
+                    Math.Min(sessionEnd, starts[index] + hourMs) - Math.Max(session.StartedAt, starts[index]);
+
+                if (overlapMs > 0)
+                {
+                    totals[hourOfDay[index]] +=
+                        (int)Math.Round(session.ActiveSeconds * ((double)overlapMs / spanMs));
+                }
+            }
+        }
+
+        return Enumerable.Range(0, 24).Select(hour => new AnalyticsHour(hour, totals[hour])).ToList();
     }
 
     // -- timeline -----------------------------------------------------------

@@ -46,6 +46,7 @@ internal sealed class RequestRouter
             [IpcMethods.ActivityGetDay] = GetDay,
             [IpcMethods.ActivityGetTimeline] = GetTimeline,
             [IpcMethods.ActivityGetCalendar] = GetCalendar,
+            [IpcMethods.AnalyticsGetSummary] = GetAnalytics,
             [IpcMethods.ApplicationsList] = ListApplications,
             [IpcMethods.ApplicationsGetDetail] = GetApplicationDetail,
             [IpcMethods.SessionsGetDetail] = GetSessionDetail,
@@ -180,21 +181,38 @@ internal sealed class RequestRouter
     private object GetCalendar(JsonElement? parameters)
     {
         var query = Require<CalendarQuery>(parameters);
+        ValidateDays(query.DayStartsUtcMs);
 
-        if (query.DayStartsUtcMs.Count == 0)
+        return _services.Activity.GetCalendar(
+            query.DayStartsUtcMs, SessionMerger.DefaultMinSessionSeconds, _services.Clock.UtcNowMs);
+    }
+
+    private object GetAnalytics(JsonElement? parameters)
+    {
+        var query = Require<AnalyticsQuery>(parameters);
+        ValidateDays(query.DayStartsUtcMs);
+
+        return _services.Activity.GetAnalytics(
+            query.DayStartsUtcMs, SessionMerger.DefaultMinSessionSeconds, _services.Clock.UtcNowMs);
+    }
+
+    /// <summary>
+    /// The guard for both day-list methods. Same limit for both, because both
+    /// materialise one row per day into a single response.
+    /// </summary>
+    private static void ValidateDays(IReadOnlyList<long> dayStartsUtcMs)
+    {
+        if (dayStartsUtcMs.Count == 0)
         {
             throw new IpcException(IpcErrorCode.E_BAD_PARAMS, "No days were requested.");
         }
 
-        if (query.DayStartsUtcMs.Count > CalendarQuery.MaxDays)
+        if (dayStartsUtcMs.Count > CalendarQuery.MaxDays)
         {
             throw new IpcException(
                 IpcErrorCode.E_RANGE,
                 $"At most {CalendarQuery.MaxDays} days can be requested at once.");
         }
-
-        return _services.Activity.GetCalendar(
-            query.DayStartsUtcMs, SessionMerger.DefaultMinSessionSeconds, _services.Clock.UtcNowMs);
     }
 
     private object ListApplications(JsonElement? parameters)

@@ -134,6 +134,7 @@ public static class IpcMethods
     public const string ActivityGetDay = "activity.getDay";
     public const string ActivityGetTimeline = "activity.getTimeline";
     public const string ActivityGetCalendar = "activity.getCalendar";
+    public const string AnalyticsGetSummary = "analytics.getSummary";
     public const string ApplicationsList = "applications.list";
     public const string ApplicationsGetDetail = "applications.getDetail";
     public const string SessionsGetDetail = "sessions.getDetail";
@@ -160,6 +161,7 @@ public static class IpcMethods
         ActivityGetDay,
         ActivityGetTimeline,
         ActivityGetCalendar,
+        AnalyticsGetSummary,
         ApplicationsList,
         ApplicationsGetDetail,
         SessionsGetDetail,
@@ -232,6 +234,43 @@ public sealed record CalendarDay(
     int ActiveSeconds,
     int SessionCount,
     int ApplicationCount);
+
+/// <summary>
+/// Analytics over a set of days. Same shape as <see cref="CalendarQuery"/> and
+/// for the same reason: the client owns the local-day boundaries. Hour-of-day
+/// falls out of them — an hour's index is how many hours it sits after that
+/// day's midnight — so a by-hour picture needs no timezone here either.
+/// </summary>
+public sealed record AnalyticsQuery(IReadOnlyList<long> DayStartsUtcMs);
+
+public sealed record AnalyticsSummary(
+    long FromUtcMs,
+    long ToUtcMs,
+    int ActiveSeconds,
+    int IdleSeconds,
+    int ApplicationCount,
+    int SessionCount,
+    int RecordedDayCount,
+    int AverageActiveSecondsPerRecordedDay,
+    IReadOnlyList<CalendarDay> Days,
+    long? BusiestDayStartUtcMs,
+    IReadOnlyList<AnalyticsHour> Hours,
+    IReadOnlyList<ApplicationSummary> TopApplications,
+    LongestSession? LongestSession)
+{
+    /// <summary>How many applications the summary carries. The rest are in the totals.</summary>
+    public const int TopApplicationCount = 8;
+}
+
+public sealed record AnalyticsHour(int Hour, int ActiveSeconds);
+
+public sealed record LongestSession(
+    long SessionId,
+    long ApplicationId,
+    string ApplicationName,
+    string Executable,
+    long StartedAt,
+    int ActiveSeconds);
 
 public sealed record TimelineQuery(long FromUtcMs, long ToUtcMs, int? MinSessionSeconds);
 

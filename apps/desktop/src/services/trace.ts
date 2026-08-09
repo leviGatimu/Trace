@@ -1,5 +1,6 @@
 import {
   DELETE_ALL_CONFIRMATION,
+  type AnalyticsSummary,
   type ApplicationDetail,
   type ApplicationSummary,
   type CalendarDay,
@@ -91,6 +92,9 @@ export const trace = {
 
   calendar: (dayStartsUtcMs: number[]) =>
     call<CalendarDay[]>('activity.getCalendar', { dayStartsUtcMs }),
+
+  analytics: (dayStartsUtcMs: number[]) =>
+    call<AnalyticsSummary>('analytics.getSummary', { dayStartsUtcMs }),
 
   applications: (range: DayRange) => call<ApplicationSummary[]>('applications.list', range),
   application: (applicationId: number, range: DayRange) =>

@@ -11,6 +11,7 @@ import { Onboarding } from '@/components/Onboarding';
 import { useConnection } from '@/hooks/useTracker';
 import { getClockFormat, setClockFormat } from '@/lib/format';
 import { bridge, trace } from '@/services/trace';
+import { AnalyticsPage } from '@/pages/AnalyticsPage';
 import { ApplicationsPage } from '@/pages/ApplicationsPage';
 import { CalendarPage } from '@/pages/CalendarPage';
 import { OverviewPage } from '@/pages/OverviewPage';
@@ -173,6 +174,7 @@ export function App() {
               <Route path="/applications" element={<ApplicationsPage />} />
               <Route path="/applications/:applicationId" element={<ApplicationsPage />} />
               <Route path="/calendar" element={<CalendarPage />} />
+              <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/search" element={<SearchPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />

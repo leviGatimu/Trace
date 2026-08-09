@@ -44,6 +44,7 @@ const NAV = [
   { to: '/timeline', label: 'Timeline', end: false },
   { to: '/applications', label: 'Applications', end: false },
   { to: '/calendar', label: 'Calendar', end: false },
+  { to: '/analytics', label: 'Analytics', end: false },
   { to: '/search', label: 'Search', end: false },
 ];
 

@@ -125,6 +125,7 @@ shape of this contract.
 | `activity.getDay` | `DayRange` | `DayActivity` |
 | `activity.getTimeline` | `TimelineQuery` | `TimelineEntry[]` |
 | `activity.getCalendar` | `CalendarQuery` | `CalendarDay[]` |
+| `analytics.getSummary` | `AnalyticsQuery` | `AnalyticsSummary` |
 | `applications.list` | `DayRange` | `ApplicationSummary[]` |
 | `applications.getDetail` | `{ applicationId, ...DayRange }` | `ApplicationDetail` |
 | `sessions.getDetail` | `{ sessionId }` | `SessionDetail` |
@@ -153,7 +154,24 @@ A merged session is counted once, on the local day it **started** in. Splitting
 one that crosses midnight would require assuming its active time was spread
 evenly, which is detail the tracker never recorded.
 
-### 5.2 Destructive-method rules
+### 5.2 `analytics.getSummary`
+
+Takes the same day boundaries as the calendar, and for the same reason. Every
+figure the analytics page shows is in the response — including the averages, the
+busiest day and the longest session — so the page formats and never derives. An
+average the UI computed itself would be a second place the product could be
+wrong about how long you used something.
+
+`hours` is 24 entries, hour 0–23 of the local day, summed across the span. The
+hour boundaries come from the supplied day starts, so no timezone is needed
+here either; on a 25-hour daylight-saving day the extra hour folds into 23.
+A session's active time is spread across the hours it spans, the same
+approximation `DayActivity.hourBuckets` makes.
+
+Only sessions that **began** inside the span are counted, matching the calendar,
+so the headline total always equals the sum of the day bars.
+
+### 5.3 Destructive-method rules
 
 - `data.deleteAll` requires the literal confirmation string. A missing or wrong
   value returns `E_BAD_PARAMS`; there is no unguarded delete-everything call.

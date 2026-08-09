@@ -77,6 +77,14 @@ export function useCalendar(dayStartsUtcMs: number[], enabled: boolean) {
   });
 }
 
+export function useAnalytics(dayStartsUtcMs: number[], enabled: boolean) {
+  return useQuery({
+    queryKey: ['activity', 'analytics', dayStartsUtcMs[0], dayStartsUtcMs.at(-1)],
+    queryFn: () => trace.analytics(dayStartsUtcMs),
+    enabled: enabled && dayStartsUtcMs.length > 0,
+  });
+}
+
 export function useApplications(range: DayRange, enabled: boolean) {
   return useQuery({
     queryKey: ['activity', 'applications', range.fromUtcMs, range.toUtcMs],
