@@ -7,10 +7,14 @@ Following `DOCS/IMPLEMENTATION-PLAN.md`, which is derived from `DOCS/` and is th
 binding technical spec.
 
 ## Status
-**In progress — Milestones 1–8 complete and verified.**
+**In progress — Milestones 1–8 complete and verified; Milestone 9 part-done;
+first V2 feature (Calendar) built.**
 Trace is installable: `installer\Trace-Setup-0.1.0.exe` (132 MB). Install →
 launch → tray → uninstall all verified on this machine.
-Next up: Milestone 9, hardening.
+114 tests pass (88 tracker, 26 dashboard).
+
+**The installed copy is older than the working tree** — it predates the
+Calendar. Repackage before judging anything by the installed app.
 
 ## Progress
 - [x] Documentation audit; `DOCS/IMPLEMENTATION-PLAN.md`; 5 decisions resolved
@@ -41,7 +45,10 @@ Next up: Milestone 9, hardening.
       resume / open / quit, `--route` navigation from the tray, NSIS per-user
       installer, uninstall data choice, and auto-start of the tracker on first
       launch. Installer built, installed, run and uninstalled cleanly.
-- [ ] **Milestone 9 — hardening** (next)
+- [~] **Milestone 9 — hardening** (in progress): large-history profiling and
+      database-corruption recovery done; soak running; physical lock / sleep /
+      restart tests and the two-Windows-accounts test still to do
+- [~] **V2** (`DOCS/MVPV2.md`): **Calendar done**. Analytics next.
 - [ ] Milestone 10 — polish
 
 ## Working Notes
@@ -271,27 +278,59 @@ rewritten; its page structure and behaviour still stand.
 - Watch the count of blurring surfaces: `backdrop-filter` is GPU work per layer.
   If the window ever feels sluggish, that is the first thing to look at.
 
-### Exact next step on resume
-**Milestone 9 — hardening.** The list is in the plan §12; the ones that matter
-most here, in order:
+### V2 — Calendar (done)
+- `activity.getCalendar` takes the **local midnights** the caller wants totalled,
+  never a start-plus-count: §4 of the contract says the tracker does not guess
+  the user's timezone, and a month containing a DST change is not 30 equal days.
+- One query over the whole span, merged once, then bucketed by binary search
+  over the boundaries. A query per day would be 31 round trips *and* would split
+  a session crossing midnight into two rows and count it twice.
+- A day with nothing recorded gets **no background at all**. Forty-two filled
+  rectangles is a grid of boxes with the data hidden inside it; shading only the
+  days that hold something makes the month readable at a glance.
+- The timeline's day now lives in the URL (`#/timeline?day=<ms>`), which is what
+  lets the calendar link into it. `replace`, not `push`, so stepping through a
+  week with the arrows does not build a week of back history.
 
-1. **Long-running soak**: 72 h with an automated switch driver, watching memory,
-   handle count, database growth and `active + idle` consistency. The Win32 hook
-   re-scoping on every foreground change is the most likely handle leak.
-2. **Sleep / wake and lock / unlock cycles** on real hardware — the paths that
-   cannot be faked, and the ones most likely to produce a session spanning an
-   absence.
-3. **Windows restart**, both clean and by pulling power: verify
-   `SYSTEM_SHUTDOWN` versus `CRASH_RECOVERY`, and that the run marker behaves.
-4. **Large history**: seed a few hundred thousand sessions and profile the
-   read models. `search.query` uses `LIKE '%…%'` and is the first thing expected
-   to slow down; FTS5 with a trigram tokenizer is the fallback (plan §13.13).
-5. **Multiple Windows accounts**: two users tracking at once, verifying separate
-   databases and that neither pipe is reachable from the other account.
-6. **Database corruption**: truncate `activity.db` mid-run and confirm the
-   quarantine path leaves the damaged file intact and starts fresh.
+### Found while verifying the calendar — not yet fixed
+**`applications.getDetail`'s Today / Yesterday / Last 7 days figures use UTC
+midnight, not the user's local midnight** (`ActivityQueries.ReadUsage`:
+`todayStart = nowUtcMs - (nowUtcMs % dayMs)`). On UTC+3 they are three hours out;
+at 00:40 local the page showed "Today 20m" beside "Not used today". This breaks
+the local-days rule in the contract (§4) — the boundaries have to come from the
+caller, as they do everywhere else. Fixing it is a contract change:
+`applications.getDetail` needs the day boundaries in its params.
+
+### Exact next step on resume
+1. **Fix the UTC-midnight bug above**, or get a decision to defer it.
+2. **V2 Analytics**, the other half of the agreed first slice.
+3. **Finish Milestone 9.** The list is in the plan §12; what is left, in order:
+
+   - **Soak** (`scripts/soak.ps1`, passive, samples every 60 s to
+     `%LOCALAPPDATA%\Trace\Logs\soak.csv`): started 2026-08-10 00:16, runs 8 h.
+     The tracker was restarted at 00:36 to pick up the calendar, so the CSV
+     contains two PIDs — read each run separately.
+   - **Sleep / wake and lock / unlock** on real hardware, then `--dump` to check
+     for `SYSTEM_LOCK` / `SYSTEM_SLEEP`. Needs the owner at the machine.
+   - **Windows restart**, clean and by pulling power: `SYSTEM_SHUTDOWN` versus
+     `CRASH_RECOVERY`, and the run marker.
+   - **Multiple Windows accounts**: two users tracking at once, separate
+     databases, neither pipe reachable from the other account.
+   - Done already: large-history profiling (200k sessions — everything healthy
+     except `search.query` at 707 ms, the documented `LIKE '%…%'` tripwire) and
+     database-corruption quarantine.
 
 ## Recently Completed
+- V2 Calendar — month grid, `activity.getCalendar`, deep link into the timeline
+  (2026-08-10).
+- Clock columns widened so 12-hour times stop wrapping onto two lines
+  (2026-08-10).
+- Milestone 9 — corrupt database no longer stops Trace starting (2026-08-10).
+- Milestone 8 — Windows integration, tray, installer (2026-08-09).
+- Milestone 7 — privacy controls (2026-08-09).
+- Milestone 6 — core UI, twice redesigned to the current flat direction
+  (2026-08-09).
+- Milestone 5 — IPC over a named pipe, all contract methods (2026-08-09).
 - Milestone 4 — database, privacy gate, settings, crash recovery (2026-08-09).
 - Milestone 3 — session engine with the tracking rules under test (2026-08-09).
 - Milestone 2 — tracker proof of concept verified on real Windows (2026-08-09).

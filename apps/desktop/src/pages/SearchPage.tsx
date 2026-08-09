@@ -72,7 +72,7 @@ export function SearchPage() {
                 onClick={() => setSelectedSessionId(result.sessionId)}
                 className="-mx-2 flex w-[calc(100%+1rem)] items-baseline gap-3 rounded-sm px-2 py-2 text-left transition-colors duration-150 hover:bg-lift"
               >
-                <span className="data w-28 shrink-0 text-ink-4">
+                <span className="data w-[124px] shrink-0 text-ink-4">
                   {shortDate(result.startedAt)} {clockTime(result.startedAt)}
                 </span>
                 <AppSwatch color={appColor(result.executable)} />

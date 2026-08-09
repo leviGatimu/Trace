@@ -9,7 +9,12 @@ import type { ConnectionState } from '@/services/trace';
  */
 export interface MockBridgeOptions {
   connection?: ConnectionState;
-  responses?: Record<string, unknown>;
+  /**
+   * A canned result per method, or a function of the params for the calls whose
+   * answer depends on what was asked — the calendar sends the day boundaries it
+   * wants, and a fixed reply would not line up with them.
+   */
+  responses?: Record<string, unknown | ((params: never) => unknown)>;
   onRequest?: (method: string, params?: unknown) => void;
 }
 
@@ -33,7 +38,12 @@ export function installMockBridge(options: MockBridgeOptions = {}) {
         };
       }
 
-      return { ok: true, result: options.responses![method] };
+      const response = options.responses![method];
+
+      return {
+        ok: true,
+        result: typeof response === 'function' ? response(params as never) : response,
+      };
     },
     getConnectionState: async () => connection,
     restartTracker,

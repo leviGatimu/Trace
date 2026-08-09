@@ -23,7 +23,12 @@ server.printUrls();
 
 await buildElectron();
 
-const child = spawn(electron, ['.'], {
+// scripts/shot.mjs and scripts/measure.mjs talk to the window over the DevTools
+// protocol, which needs the port opened at launch. Off unless asked for, so an
+// ordinary dev run does not leave a debugging socket listening.
+const debugPort = process.env.TRACE_DEBUG_PORT;
+
+const child = spawn(electron, ['.', ...(debugPort ? [`--remote-debugging-port=${debugPort}`] : [])], {
   stdio: 'inherit',
   env: { ...process.env, VITE_DEV_SERVER_URL: url },
 });

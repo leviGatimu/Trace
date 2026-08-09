@@ -124,6 +124,7 @@ shape of this contract.
 | `activity.getCurrent` | — | `CurrentActivity \| null` |
 | `activity.getDay` | `DayRange` | `DayActivity` |
 | `activity.getTimeline` | `TimelineQuery` | `TimelineEntry[]` |
+| `activity.getCalendar` | `CalendarQuery` | `CalendarDay[]` |
 | `applications.list` | `DayRange` | `ApplicationSummary[]` |
 | `applications.getDetail` | `{ applicationId, ...DayRange }` | `ApplicationDetail` |
 | `sessions.getDetail` | `{ sessionId }` | `SessionDetail` |
@@ -140,7 +141,19 @@ shape of this contract.
 Full field-level definitions live in `packages/contracts/ts/index.ts`, which is
 the machine-readable half of this specification.
 
-### 5.1 Destructive-method rules
+### 5.1 `activity.getCalendar`
+
+`CalendarQuery` carries `dayStartsUtcMs`: the local midnights the caller wants
+totalled, consistent with the local-days rule in §4 — the tracker is told where
+the boundaries are rather than deriving them. The final day is assumed to be as
+long as the one before it. An empty list returns `E_BAD_PARAMS`; more than
+`CalendarQuery.MaxDays` (400) returns `E_RANGE`.
+
+A merged session is counted once, on the local day it **started** in. Splitting
+one that crosses midnight would require assuming its active time was spread
+evenly, which is detail the tracker never recorded.
+
+### 5.2 Destructive-method rules
 
 - `data.deleteAll` requires the literal confirmation string. A missing or wrong
   value returns `E_BAD_PARAMS`; there is no unguarded delete-everything call.

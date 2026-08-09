@@ -264,7 +264,7 @@ function Sessions({
       {detail.sessions.map((session) => (
         <Row key={session.sessionId} onClick={() => onSelect(session.sessionId)}>
           <div className="flex items-center gap-4">
-            <span className="data w-28 shrink-0 text-ink-2">
+            <span className="data w-[156px] shrink-0 text-ink-2">
               {clockTime(session.startedAt)}
               {session.endedAt ? ` – ${clockTime(session.endedAt)}` : ' – now'}
             </span>

@@ -2,6 +2,7 @@ import {
   DELETE_ALL_CONFIRMATION,
   type ApplicationDetail,
   type ApplicationSummary,
+  type CalendarDay,
   type CurrentActivity,
   type DayActivity,
   type DayRange,
@@ -87,6 +88,9 @@ export const trace = {
   day: (range: DayRange) => call<DayActivity>('activity.getDay', range),
   timeline: (range: DayRange, minSessionSeconds?: number) =>
     call<TimelineEntry[]>('activity.getTimeline', { ...range, minSessionSeconds }),
+
+  calendar: (dayStartsUtcMs: number[]) =>
+    call<CalendarDay[]>('activity.getCalendar', { dayStartsUtcMs }),
 
   applications: (range: DayRange) => call<ApplicationSummary[]>('applications.list', range),
   application: (applicationId: number, range: DayRange) =>

@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { TimelineEntry, TimelineSessionEntry, TimelineSystemEntry } from '@trace/contracts';
 import { DayPicker } from '@/components/DayPicker';
 import { SessionPanel } from '@/components/SessionPanel';
@@ -29,8 +30,18 @@ import {
  * exactly how a log reads.
  */
 export function TimelinePage() {
-  const [day, setDay] = useState(() => startOfLocalDay(new Date()));
+  // The day lives in the URL so other screens — the calendar, in particular —
+  // can link straight to it. Replace rather than push: stepping through a week
+  // with the arrows should not build a week of back history.
+  const [params, setParams] = useSearchParams();
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
+
+  const day = useMemo(() => dayFromParam(params.get('day')), [params]);
+  const setDay = useCallback(
+    (next: Date) => setParams({ day: String(next.getTime()) }, { replace: true }),
+    [setParams],
+  );
+
   const range = useMemo(() => localDayRange(day), [day]);
 
   const connection = useConnection();
@@ -92,7 +103,7 @@ function SessionLine({
       onClick={() => onSelect(entry.sessionId)}
       className="-mx-2 flex w-[calc(100%+1rem)] items-baseline gap-3 rounded-sm px-2 py-[11px] text-left transition-colors duration-150 hover:bg-lift"
     >
-      <span className="data w-12 shrink-0 text-ink-4">{clockTime(entry.startedAt)}</span>
+      <span className="data w-[68px] shrink-0 text-ink-4">{clockTime(entry.startedAt)}</span>
 
       <AppSwatch color={appColor(entry.executable)} />
 
@@ -143,11 +154,18 @@ function SystemLine({ entry }: { entry: TimelineSystemEntry }) {
 
   return (
     <div className="flex items-baseline gap-3 py-[11px] text-ink-4">
-      <span className="data w-12 shrink-0">{clockTime(entry.startedAt)}</span>
+      <span className="data w-[68px] shrink-0">{clockTime(entry.startedAt)}</span>
       <span className="flex-1 truncate">{label}</span>
       {length && <span className="data w-16 shrink-0 text-right">{length}</span>}
     </div>
   );
+}
+
+/** Anything unreadable in the URL falls back to today rather than to an error. */
+function dayFromParam(value: string | null): Date {
+  const parsed = value === null || value.trim() === '' ? Number.NaN : Number(value);
+
+  return startOfLocalDay(parsed > 0 && Number.isFinite(parsed) ? new Date(parsed) : new Date());
 }
 
 function key(entry: TimelineEntry, index: number): string {

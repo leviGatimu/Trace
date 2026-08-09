@@ -153,7 +153,7 @@ function Recent({ entries }: { entries: TimelineEntry[] }) {
         {sessions.map((session) => (
           <Row key={session.sessionId}>
             <div className="flex items-baseline gap-3">
-              <span className="data w-12 shrink-0 text-ink-4">{clockTime(session.startedAt)}</span>
+              <span className="data w-[68px] shrink-0 text-ink-4">{clockTime(session.startedAt)}</span>
               <span className="w-36 shrink-0 truncate text-ink">{session.applicationName}</span>
               <span className="min-w-0 flex-1 truncate text-ink-3">
                 {tidyWindowTitle(session.primaryWindowTitle, session.applicationName) ?? ''}

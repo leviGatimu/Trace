@@ -63,6 +63,20 @@ export function useTimeline(range: DayRange, enabled: boolean) {
   });
 }
 
+/**
+ * A span of days, each with its totals.
+ *
+ * Keyed on the ends of the span rather than on the whole array, so a re-render
+ * that rebuilds the same list of dates does not look like a new query.
+ */
+export function useCalendar(dayStartsUtcMs: number[], enabled: boolean) {
+  return useQuery({
+    queryKey: ['activity', 'calendar', dayStartsUtcMs[0], dayStartsUtcMs.at(-1)],
+    queryFn: () => trace.calendar(dayStartsUtcMs),
+    enabled: enabled && dayStartsUtcMs.length > 0,
+  });
+}
+
 export function useApplications(range: DayRange, enabled: boolean) {
   return useQuery({
     queryKey: ['activity', 'applications', range.fromUtcMs, range.toUtcMs],

@@ -104,6 +104,79 @@ internal sealed class ActivityQueries
         return buckets;
     }
 
+    // -- calendar -----------------------------------------------------------
+
+    /// <summary>
+    /// Totals for each supplied day.
+    ///
+    /// One query over the whole span, bucketed in memory, rather than a query
+    /// per day: a month is 31 round trips otherwise, and the sessions have to be
+    /// merged as a continuous run anyway — merging each day in isolation would
+    /// split a stretch that crosses midnight into two rows and count it twice.
+    ///
+    /// A merged session belongs to the local day it *started* in (implementation
+    /// plan §14E). Splitting its active time at the boundary would mean assuming
+    /// activity was spread evenly across the session, which is inventing detail
+    /// the tracker never recorded.
+    /// </summary>
+    public List<CalendarDay> GetCalendar(
+        IReadOnlyList<long> dayStartsUtcMs, int minSessionSeconds, long nowUtcMs)
+    {
+        if (dayStartsUtcMs.Count == 0)
+        {
+            return [];
+        }
+
+        var days = dayStartsUtcMs.OrderBy(day => day).ToList();
+
+        // The final boundary is unknown — the caller sends starts, not an end —
+        // so assume the last day is as long as the one before it, falling back
+        // to 24 hours for a single-day request.
+        var lastLength = days.Count > 1 ? days[^1] - days[^2] : 86_400_000;
+        var end = days[^1] + lastLength;
+
+        var merged = _database.Read(connection =>
+            SessionMerger.Merge(
+                ReadSessionsOverlapping(connection, days[0], end), minSessionSeconds, nowUtcMs));
+
+        var active = new int[days.Count];
+        var sessions = new int[days.Count];
+        var applications = new HashSet<long>[days.Count];
+
+        for (var i = 0; i < days.Count; i++)
+        {
+            applications[i] = [];
+        }
+
+        foreach (var session in merged)
+        {
+            var index = IndexOfDay(days, session.StartedAt);
+            if (index < 0)
+            {
+                continue;
+            }
+
+            active[index] += session.ActiveSeconds;
+            sessions[index]++;
+            applications[index].Add(session.ApplicationId);
+        }
+
+        return days
+            .Select((start, index) =>
+                new CalendarDay(start, active[index], sessions[index], applications[index].Count))
+            .ToList();
+    }
+
+    /// <summary>
+    /// The day a timestamp falls in, by binary search over the boundaries.
+    /// Returns -1 for anything before the first day.
+    /// </summary>
+    private static int IndexOfDay(List<long> dayStarts, long atUtcMs)
+    {
+        var index = dayStarts.BinarySearch(atUtcMs);
+        return index >= 0 ? index : ~index - 1;
+    }
+
     // -- timeline -----------------------------------------------------------
 
     public List<TimelineEntry> GetTimeline(TimelineQuery query, long nowUtcMs)

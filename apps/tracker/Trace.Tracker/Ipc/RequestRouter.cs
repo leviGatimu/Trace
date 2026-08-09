@@ -45,6 +45,7 @@ internal sealed class RequestRouter
             [IpcMethods.ActivityGetCurrent] = _ => CurrentActivity(),
             [IpcMethods.ActivityGetDay] = GetDay,
             [IpcMethods.ActivityGetTimeline] = GetTimeline,
+            [IpcMethods.ActivityGetCalendar] = GetCalendar,
             [IpcMethods.ApplicationsList] = ListApplications,
             [IpcMethods.ApplicationsGetDetail] = GetApplicationDetail,
             [IpcMethods.SessionsGetDetail] = GetSessionDetail,
@@ -174,6 +175,26 @@ internal sealed class RequestRouter
         ValidateRange(query.FromUtcMs, query.ToUtcMs);
 
         return _services.Activity.GetTimeline(query, _services.Clock.UtcNowMs);
+    }
+
+    private object GetCalendar(JsonElement? parameters)
+    {
+        var query = Require<CalendarQuery>(parameters);
+
+        if (query.DayStartsUtcMs.Count == 0)
+        {
+            throw new IpcException(IpcErrorCode.E_BAD_PARAMS, "No days were requested.");
+        }
+
+        if (query.DayStartsUtcMs.Count > CalendarQuery.MaxDays)
+        {
+            throw new IpcException(
+                IpcErrorCode.E_RANGE,
+                $"At most {CalendarQuery.MaxDays} days can be requested at once.");
+        }
+
+        return _services.Activity.GetCalendar(
+            query.DayStartsUtcMs, SessionMerger.DefaultMinSessionSeconds, _services.Clock.UtcNowMs);
     }
 
     private object ListApplications(JsonElement? parameters)

@@ -133,6 +133,7 @@ public static class IpcMethods
     public const string ActivityGetCurrent = "activity.getCurrent";
     public const string ActivityGetDay = "activity.getDay";
     public const string ActivityGetTimeline = "activity.getTimeline";
+    public const string ActivityGetCalendar = "activity.getCalendar";
     public const string ApplicationsList = "applications.list";
     public const string ApplicationsGetDetail = "applications.getDetail";
     public const string SessionsGetDetail = "sessions.getDetail";
@@ -158,6 +159,7 @@ public static class IpcMethods
         ActivityGetCurrent,
         ActivityGetDay,
         ActivityGetTimeline,
+        ActivityGetCalendar,
         ApplicationsList,
         ApplicationsGetDetail,
         SessionsGetDetail,
@@ -214,6 +216,22 @@ public sealed record DayActivity(
     IReadOnlyList<HourBucket> HourBuckets);
 
 public sealed record HourBucket(long StartUtcMs, int ActiveSeconds);
+
+/// <summary>
+/// Totals per day, for the calendar. The client supplies local midnights as UTC
+/// milliseconds rather than a range and a timezone: a month can contain a
+/// daylight-saving change, and that arithmetic belongs where the locale is.
+/// </summary>
+public sealed record CalendarQuery(IReadOnlyList<long> DayStartsUtcMs)
+{
+    public const int MaxDays = 400;
+}
+
+public sealed record CalendarDay(
+    long StartUtcMs,
+    int ActiveSeconds,
+    int SessionCount,
+    int ApplicationCount);
 
 public sealed record TimelineQuery(long FromUtcMs, long ToUtcMs, int? MinSessionSeconds);
 

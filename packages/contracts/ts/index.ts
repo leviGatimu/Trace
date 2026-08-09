@@ -114,6 +114,7 @@ export type IpcMethod =
   | 'activity.getCurrent'
   | 'activity.getDay'
   | 'activity.getTimeline'
+  | 'activity.getCalendar'
   | 'applications.list'
   | 'applications.getDetail'
   | 'sessions.getDetail'
@@ -134,6 +135,7 @@ export const IPC_METHODS: readonly IpcMethod[] = [
   'activity.getCurrent',
   'activity.getDay',
   'activity.getTimeline',
+  'activity.getCalendar',
   'applications.list',
   'applications.getDetail',
   'sessions.getDetail',
@@ -210,6 +212,26 @@ export interface DayActivity {
 export interface HourBucket {
   startUtcMs: number;
   activeSeconds: number;
+}
+
+/**
+ * Totals for a set of days, for the calendar.
+ *
+ * The client sends the day boundaries rather than a range plus a timezone: it
+ * already computes local days elsewhere (§4), and a month can contain a
+ * daylight-saving change that makes one day 23 or 25 hours long. Sending the
+ * boundaries keeps that arithmetic in the one place that has a locale.
+ */
+export interface CalendarQuery {
+  /** Local midnights as UTC milliseconds, ascending. At most 400. */
+  dayStartsUtcMs: number[];
+}
+
+export interface CalendarDay {
+  startUtcMs: number;
+  activeSeconds: number;
+  sessionCount: number;
+  applicationCount: number;
 }
 
 export interface TimelineQuery extends DayRange {

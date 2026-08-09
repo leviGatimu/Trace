@@ -257,6 +257,88 @@ public class IpcTests
     }
 
     [Fact]
+    public void The_calendar_totals_each_day_it_is_asked_for()
+    {
+        using var trace = new PersistenceHarness();
+        var engine = trace.NewEngine();
+
+        engine.Start()
+            .Switch("chrome.exe", "YouTube").AdvanceMinutes(30)
+            .Switch("code.exe", "main.ts").AdvanceMinutes(20)
+            .ShutDown();
+
+        // Three days, with the scripted activity in the middle one. Boundaries
+        // are supplied by the caller because only it knows the local time zone.
+        var days = new[]
+        {
+            EngineHarness.DayStartUtcMs - 86_400_000,
+            EngineHarness.DayStartUtcMs,
+            EngineHarness.DayStartUtcMs + 86_400_000,
+        };
+
+        var calendar = Ok<List<CalendarDay>>(
+            NewRouter(trace), IpcMethods.ActivityGetCalendar, new { dayStartsUtcMs = days });
+
+        Assert.Equal(3, calendar.Count);
+        Assert.Equal(days, calendar.Select(d => d.StartUtcMs));
+
+        Assert.Equal(0, calendar[0].ActiveSeconds);
+        Assert.Equal(50 * 60, calendar[1].ActiveSeconds);
+        Assert.Equal(2, calendar[1].SessionCount);
+        Assert.Equal(2, calendar[1].ApplicationCount);
+        Assert.Equal(0, calendar[2].ActiveSeconds);
+    }
+
+    [Fact]
+    public void A_session_running_past_midnight_counts_once_on_the_day_it_began()
+    {
+        // Splitting it at the boundary would mean assuming the active time was
+        // spread evenly across the session, which is detail nothing recorded.
+        using var trace = new PersistenceHarness();
+        var engine = trace.NewEngine();
+
+        var midnight = EngineHarness.DayStartUtcMs + (16 * 3_600_000);
+
+        engine.Start().Switch("code.exe", "main.ts").Advance(TimeSpan.FromHours(17)).ShutDown();
+
+        var calendar = Ok<List<CalendarDay>>(
+            NewRouter(trace),
+            IpcMethods.ActivityGetCalendar,
+            new { dayStartsUtcMs = new[] { midnight - 86_400_000, midnight } });
+
+        Assert.Equal(17 * 3600, calendar[0].ActiveSeconds);
+        Assert.Equal(0, calendar[1].ActiveSeconds);
+        Assert.Equal(0, calendar[1].SessionCount);
+    }
+
+    [Fact]
+    public void A_calendar_request_with_no_days_is_rejected()
+    {
+        using var trace = new PersistenceHarness();
+
+        Assert.Equal(
+            IpcErrorCode.E_BAD_PARAMS,
+            Error(NewRouter(trace), IpcMethods.ActivityGetCalendar,
+                new { dayStartsUtcMs = Array.Empty<long>() }).Code);
+    }
+
+    [Fact]
+    public void A_calendar_request_longer_than_the_contract_allows_is_rejected()
+    {
+        using var trace = new PersistenceHarness();
+
+        var tooMany = Enumerable
+            .Range(0, CalendarQuery.MaxDays + 1)
+            .Select(i => EngineHarness.DayStartUtcMs + ((long)i * 86_400_000))
+            .ToArray();
+
+        Assert.Equal(
+            IpcErrorCode.E_RANGE,
+            Error(NewRouter(trace), IpcMethods.ActivityGetCalendar,
+                new { dayStartsUtcMs = tooMany }).Code);
+    }
+
+    [Fact]
     public void Search_finds_window_titles_and_application_names()
     {
         using var trace = new PersistenceHarness();
