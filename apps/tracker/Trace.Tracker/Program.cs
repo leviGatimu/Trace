@@ -22,6 +22,13 @@ internal static class Program
             return ExitCodes.Ok;
         }
 
+        // --dump only reads, so it must not be blocked by the running tracker
+        // and has no reason to open the log for writing.
+        if (mode.Kind == LaunchKind.Dump)
+        {
+            return DumpCommand.Run();
+        }
+
         Log.Initialise();
 
         // Single instance. Two trackers writing one SQLite file would be the
@@ -87,6 +94,7 @@ internal enum LaunchKind
 {
     Normal,
     Diagnose,
+    Dump,
 }
 
 /// <summary>Command-line surface. Kept tiny on purpose — this is a background service, not a CLI.</summary>
@@ -100,6 +108,8 @@ internal sealed record LaunchMode(LaunchKind Kind, bool ShowHelp)
             {
                 case "--diagnose":
                     return new LaunchMode(LaunchKind.Diagnose, false);
+                case "--dump":
+                    return new LaunchMode(LaunchKind.Dump, false);
                 case "--help":
                 case "-h":
                 case "/?":

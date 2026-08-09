@@ -7,136 +7,111 @@ Following `DOCS/IMPLEMENTATION-PLAN.md`, which is derived from `DOCS/` and is th
 binding technical spec.
 
 ## Status
-**In progress — Milestones 1, 2 and 3 complete and verified.**
-Next up: Milestone 4, the database.
+**In progress — Milestones 1–4 complete and verified.**
+The tracker now records real activity to a real database on this machine.
+Next up: Milestone 5, IPC.
 
 ## Progress
-- [x] Read all seven product documents in `DOCS/`
-- [x] `DOCS/IMPLEMENTATION-PLAN.md` written; 13 documentation
-      contradictions/gaps identified; 5 open decisions resolved with the owner
-- [x] .NET 10 SDK installed (10.0.302)
-- [x] **Milestone 1 — foundation**: repo layout, git, npm workspaces, IPC
-      contract (spec + TS + C# mirror), tracker project, paths, privacy-aware
-      logging. Tracker builds clean with `TreatWarningsAsErrors`.
-- [x] **Milestone 2 — tracker proof of concept**: `TraceTracker.exe --diagnose`
-      verified against real Windows behaviour (see Working Notes).
-- [x] **Milestone 3 — session engine**: pure state machine (`SessionEngine`,
-      `TrackerState`) behind `IActivitySink` / `IWindowResolver`. 32 xUnit tests,
-      one per rule in the `DOCS/Tracking.md` table, including the `MVP.md` §10
-      acceptance scenario. Verified live via `--diagnose`, which now drives the
-      real engine through the real signal queue and prints derived sessions.
-- [ ] **Milestone 4 — database** (next)
-- [ ] Milestone 5 — IPC
-- [ ] Milestone 6 — core UI (desktop scaffolding started: `package.json` only)
+- [x] Documentation audit; `DOCS/IMPLEMENTATION-PLAN.md`; 5 decisions resolved
+- [x] **Milestone 1 — foundation**: repo, git, npm workspaces, IPC contract
+      (spec + TS + C# mirror), tracker project, paths, privacy-aware logging
+- [x] **Milestone 2 — tracker proof of concept**: Win32 layer verified live
+- [x] **Milestone 3 — session engine**: pure state machine, 32 tests
+- [x] **Milestone 4 — database**: schema + migrations, `TraceDatabase`,
+      repositories, `PrivacyGate`, `SettingsStore`, crash recovery, retention.
+      Engine wired into `TrackerHost`. **54 tests pass.** Verified end to end on
+      this machine: recorded real activity, killed the process, restarted, and
+      watched it recover the interrupted session at the last heartbeat.
+- [ ] **Milestone 5 — IPC** (next)
+- [ ] Milestone 6 — core UI (desktop scaffolding: `package.json` only so far)
 - [ ] Milestones 7–10
 
 ## Working Notes
 
 ### Decisions locked with the owner (plan §14)
-- **A** Retention default → **Forever** (options Forever / 1y / 90d / 30d)
-- **B** Search → **a fifth sidebar page** (not only the Ctrl+K palette).
-  Nav is Overview · Timeline · Applications · Search — Settings.
+- **A** Retention default → **Forever**
+- **B** Search → **a fifth sidebar page** (Overview · Timeline · Applications ·
+  Search — Settings). The Ctrl+K palette still ships and can jump to it.
 - **C** IPC → **named pipe** `\\.\pipe\Trace.<SID>`, per-user DACL
 - **D** Install → **per-user** `%LOCALAPPDATA%\Programs\Trace`, no UAC
 - **E** Midnight-crossing sessions → attributed to local day of `started_at`
 
-### Milestone 2 verification — what real Windows actually did
-Run: `TraceTracker.exe --diagnose`, driving real foreground changes.
+### How to run it today
+```
+TraceTracker.exe              # record (no tray or quit yet - Milestone 8)
+TraceTracker.exe --diagnose   # live Win32 + engine trace, writes nothing
+TraceTracker.exe --dump       # print the recorded history, read-only
+TraceTracker.exe --help
+```
+Data lives in `%LOCALAPPDATA%\Trace`. There is real activity data there from
+development testing; delete `Data\activity.db*` to start clean.
 
-Confirmed working:
-- Foreground transitions across Roblox / Notepad / Explorer / Windows Terminal
-- Friendly names from the version resource ("Roblox Game Client")
-- Executable paths, including packaged apps under `WindowsApps`
-- In-place title changes (`EVENT_OBJECT_NAMECHANGE` scoped to the foreground PID)
-- `GetLastInputInfo` idle reporting
+### Architecture in place
+- **`PrivacyGate` is the only route from engine to storage.** The engine depends
+  on `IActivitySink` and holds no repository. Creating a record is gated;
+  *finishing* one is not — otherwise pausing would strand the open session and it
+  would be misreported as a crash next start.
+- **Tracker is sole owner of `activity.db`.** One write connection behind a lock;
+  readers get their own connections (WAL).
+- **Crash recovery** closes interrupted sessions at `tracker_state.last_heartbeat`
+  using the active/idle split the heartbeat stored, so recovery is accurate
+  rather than a guess. Under-attributes by at most one heartbeat (30 s).
+- **Run marker** (`%LOCALAPPDATA%\Trace\tracker.running`) decides whether to run
+  an integrity check — that question has to be answered before the database is
+  opened, so it cannot live in a table.
+- **Window sessions are written on completion**, with a 5-second floor. See the
+  finding below.
+- **Paused survives reboot** (settings), and an unreadable `settings.json` falls
+  back to *paused*, never to recording.
 
-Three findings, two fixed:
-1. **Fixed** — modern Notepad sets `FileDescription` to the literal
-   `"Notepad.exe"`, which would have put a filename in the user's history.
-   `ProcessIdentity.Clean` now strips a filename-shaped description.
-2. **Fixed** — non-ASCII window titles were mojibake in diagnose output;
-   `ConsoleBridge` now forces UTF-8.
-3. **RESOLVED at Milestone 3** — Alt-Tab and shell transitions surface as real
-   foreground events (`explorer.exe "(no title)"`, `explorer.exe
-   "Task Switching"`), and Windows emits duplicate consecutive foreground
-   events. Measured live: **8 sessions in 9 seconds, most 0s**.
-   - Duplicate consecutive states are deduped in the engine and tested.
-   - The shell noise is **kept in raw data** per `DOCS/Tracking.md` §F, and
-     cleaned at the query layer. A collection-time blocklist was rejected: it
-     would silently lose real File Explorer usage.
-   - **Consequence to honour in Milestone 5**: every read model must apply the
-     same `minSessionSeconds` merge. Durations are negligible either way, but a
-     naive `sessionCount` would rank File Explorer among the most-used apps.
-     Recorded in plan §7.
-
-### Key architecture already locked and implemented
-- **Tracker is the sole owner of `activity.db`**; the UI never opens the file.
-  Kills two-writer risk and the `better-sqlite3` native-module problem.
-- **Tracker owns the tray icon** (WinExe + NotifyIcon). Electron is not resident
-  at boot, so pause survives a UI crash.
-- **Single-threaded session engine** fed by `SignalQueue` (`Channel<Signal>`);
-  all Win32 watchers only enqueue. The engine is testable with zero Windows.
-- **Repositories will be `internal`, reachable only via `PrivacyGate`** — a
-  write path that bypasses privacy filtering must be a compile error.
-- **Idle is backdated** to `GetLastInputInfo`'s last-input time (`IdleStarted.
-  SinceUtcMs`), otherwise every idle period fabricates ~5 min of active time.
-- **UWP handling** via `ApplicationFrameHost` → `CoreWindow` child resolution.
-- **No global process enumeration** (deliberate reduction vs
-  `project-architecture.md` §7).
-- `Log.Redact()` must wrap every window title or excluded-app name that reaches
-  a log line; Debug level is off unless the user enables developer logging.
+### Findings from running it for real
+1. **Window-title churn — fixed.** A terminal with a progress spinner produced
+   nine window sessions in seconds; unbounded, machine-driven, tens of thousands
+   of rows a day. Window sessions are now held in memory and written only on
+   completion and only if they lasted ≥ 5 s (plan §7). Trade-offs accepted:
+   window durations don't sum to session duration, and the in-progress window is
+   lost on a crash (the application session is not).
+2. **Recovered sessions could contain windows outlasting them — fixed.** A window
+   completing after the last heartbeat is still written; recovery now clamps it
+   back inside the recovered session end.
+3. **Alt-Tab noise — by design.** Eight sessions in nine seconds, mostly 0 s,
+   including the `explorer.exe "Task Switching"` overlay. Kept raw per
+   `Tracking.md` §F; **Milestone 5 must apply the same `minSessionSeconds` merge
+   to every read model**, or a naive `sessionCount` ranks File Explorer among the
+   most-used apps.
+4. **Published tracker is 136 MB** (self-contained, WinForms + full BCL). Fine
+   for now; revisit at Milestone 8 — trimming is the first thing to try.
 
 ### Build notes worth keeping
-- TFM is `net10.0-windows10.0.17763.0` — the platform version must be in the
-  TFM, not only `SupportedOSPlatformVersion`.
-- `AllowUnsafeBlocks=true` is required by `[LibraryImport]`.
-- Buffer-filling Win32 calls take `char*` (pinned by the caller) rather than
-  `char[]`, which would have forced `DisableRuntimeMarshalling` assembly-wide.
-- `Microsoft.Data.Sqlite 10.0.10` still resolves SQLitePCLRaw 2.1.11, which
-  carries **GHSA-2m69-gcr7-jv3q (high)**. Pinned forward with an explicit
-  `SQLitePCLRaw.bundle_e_sqlite3 3.0.5` reference. Revisit when
-  Microsoft.Data.Sqlite ships 3.x by default.
-- `UseWindowsForms` + implicit usings makes a bare `Timer` ambiguous — always
-  write `System.Threading.Timer`.
-
-### Milestone 3 notes
-- `SessionEngine` writes only through `IActivitySink`; it holds no repository
-  and no Win32 reference. `RecordingSink` + `ScriptedScreen` + `EngineHarness`
-  in the test project let a whole scripted day run in microseconds.
-- Tests were **mutation-checked**: removing idle backdating fails 5 of 32,
-  so they have teeth rather than merely passing.
-- `TrackerHost` still runs the interim consumer — the engine cannot be wired in
-  until Milestone 4 supplies a real `IActivitySink`. It records nothing and does
-  not pretend to.
-- Still untested, because it belongs to `PrivacyGate` in Milestone 4: the
-  built-in, non-removable exclusion of `Trace.exe` / `TraceTracker.exe`
-  (`DOCS/Tracking.md` §Q).
+- TFM `net10.0-windows10.0.17763.0`; `AllowUnsafeBlocks` required by
+  `[LibraryImport]`; buffer-filling Win32 calls take `char*`, not `char[]`.
+- `Microsoft.Data.Sqlite` still resolves SQLitePCLRaw 2.1.11 (GHSA-2m69-gcr7-jv3q,
+  high). Pinned forward via `SQLitePCLRaw.bundle_e_sqlite3 3.0.5`.
+- `UseWindowsForms` + implicit usings makes bare `Timer` ambiguous — write
+  `System.Threading.Timer`.
+- PowerShell 5.1 mangles native-command arguments containing double quotes. Use
+  `git commit -F <file>` for commit messages.
 
 ### Exact next step on resume
-**Milestone 4 — database.** In order:
-1. `Data/Migrations/001_initial.sql` exactly as specified in plan §6, applied
-   transactionally with `schema_version`; refuse to run if the DB is newer than
-   the app.
-2. `Data/TraceDatabase.cs`: WAL, `synchronous=FULL`, `foreign_keys=ON`,
-   `busy_timeout=5000`; `integrity_check` after an unclean exit, quarantining a
-   corrupt file rather than discarding it.
-3. `Data/Repositories/*` — `internal`, and reachable **only** through
-   `Privacy/PrivacyGate.cs`, which implements `IActivitySink`. The gate is where
-   pause, exclusions, the built-in Trace exclusion, and the window-title switch
-   are enforced. A write path that bypasses it must not compile.
-4. `Settings/SettingsStore.cs` over `settings.json`, including persisted pause
-   state (`DOCS/Privacy.md` §27).
-5. Crash recovery on startup: close any `ended_at IS NULL` session at
-   `tracker_state.last_heartbeat` with `CRASH_RECOVERY`, plus `TRACKER_RECOVERED`.
-6. Wire `SessionEngine` into `TrackerHost` and replace the interim consumer.
+**Milestone 5 — IPC.** In order:
+1. `Ipc/PipeServer.cs`: `\\.\pipe\Trace.<SID>`, `PipeSecurity` granting only the
+   current user SID and SYSTEM, `FILE_FLAG_FIRST_PIPE_INSTANCE` so a squatter
+   causes a loud failure rather than silent impersonation. NDJSON framing, 8 MiB
+   frame cap.
+2. `Ipc/RequestRouter.cs` + one handler per method in
+   `packages/contracts/ipc-contract.md` §5.
+3. `Data/Queries/*` — read models shaped exactly as the contract returns them.
+   **Every one must apply the same `minSessionSeconds` merge**, including
+   `sessionCount` (finding 3 above).
+4. `ContractSurfaceTests`: assert the router's registered methods equal
+   `IpcMethods.All`, so the two sides of the contract cannot drift.
+5. Add a `--probe` client command to exercise every method against a real
+   database, the way `--dump` verifies the write path.
 
-Tests to add: gate produces zero rows across **all five tables** for an excluded
-app; migrations apply 001→N and preserve seeded data; recovery closes at the
-heartbeat, not at start-up time.
-
-Do **not** start UI pages before Milestone 5 (IPC) can serve real data.
+Do **not** start UI pages before the IPC layer returns real data.
 
 ## Recently Completed
+- Milestone 4 — database, privacy gate, settings, crash recovery (2026-08-09).
+- Milestone 3 — session engine with the tracking rules under test (2026-08-09).
 - Milestone 2 — tracker proof of concept verified on real Windows (2026-08-09).
 - Milestone 1 — project foundation, contracts, logging, build (2026-08-09).
-- Implementation plan and documentation audit (2026-08-09).

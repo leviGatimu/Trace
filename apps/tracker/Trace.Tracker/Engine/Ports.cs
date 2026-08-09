@@ -63,9 +63,19 @@ internal interface IActivitySink
     void CloseSession(
         long sessionId, long endedAtUtcMs, int activeSeconds, int idleSeconds, EndReason reason);
 
-    long? OpenWindowSession(long sessionId, string title, long startedAtUtcMs);
-
-    void CloseWindowSession(long windowSessionId, long endedAtUtcMs, int durationSeconds);
+    /// <summary>
+    /// Records a window session that has already finished.
+    ///
+    /// Window sessions are written on completion rather than opened and closed,
+    /// because their lifetime is not driven by the user alone. A terminal with a
+    /// spinner, a media player counting elapsed time, or a browser showing
+    /// download progress all rewrite their title several times a second; writing
+    /// each one immediately would add tens of thousands of meaningless rows a
+    /// day. Deferring lets the engine discard the ones too short to mean
+    /// anything — see <c>SessionEngine.MinWindowSessionSeconds</c>.
+    /// </summary>
+    void RecordWindowSession(
+        long sessionId, string title, long startedAtUtcMs, long endedAtUtcMs, int durationSeconds);
 
     void AppendEvent(
         EventType type, long atUtcMs, long? applicationId, long? sessionId, string? metadataJson);
@@ -74,16 +84,24 @@ internal interface IActivitySink
 }
 
 /// <summary>
-/// Written to <c>tracker_state</c> on every heartbeat and every transition.
+/// Written on every heartbeat and every transition.
 ///
 /// This is the anchor crash recovery uses: an unclean exit closes the open
 /// session at <see cref="AtUtcMs"/>, which bounds over-attribution to one
 /// heartbeat interval and never invents time
 /// (DOCS/data and database.md §14, §28).
+///
+/// <see cref="ActiveSeconds"/> and <see cref="IdleSeconds"/> carry the open
+/// session's accounting as of this moment. Without them, recovering an
+/// interrupted session would mean attributing all of it to active or all of it
+/// to idle — both fabrications. With them, a recovered session reports the real
+/// split up to the last heartbeat.
 /// </summary>
 internal readonly record struct TrackerStateSnapshot(
     long AtUtcMs,
     TrackingState State,
     long? CurrentSessionId,
     long? CurrentApplicationId,
-    string? CurrentWindowTitle);
+    string? CurrentWindowTitle,
+    int ActiveSeconds,
+    int IdleSeconds);

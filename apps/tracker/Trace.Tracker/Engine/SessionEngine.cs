@@ -16,6 +16,23 @@ namespace Trace.Tracker.Engine;
 /// </summary>
 internal sealed class SessionEngine
 {
+    /// <summary>
+    /// A window shown for less than this is not recorded.
+    ///
+    /// Unlike application sessions — where DOCS/Tracking.md §F keeps the raw
+    /// transitions and cleans up at display time — window titles change for
+    /// reasons that have nothing to do with the user. Running the real tracker
+    /// against a terminal whose title carries a progress spinner produced nine
+    /// window sessions in a few seconds; over a working day that is tens of
+    /// thousands of rows describing nothing anyone will ever look at.
+    ///
+    /// Five seconds matches the threshold §F already proposes, applied to the
+    /// table that actually needed it. The cost is that a glance at a tab lasting
+    /// under five seconds is not kept, which is precisely the clutter §F asks us
+    /// to avoid.
+    /// </summary>
+    public const int MinWindowSessionSeconds = 5;
+
     private readonly IActivitySink _sink;
     private readonly IWindowResolver _resolver;
     private readonly TrackerState _state = new();
@@ -242,22 +259,22 @@ internal sealed class SessionEngine
     }
 
     /// <summary>
-    /// Brings the window session in line with what the window now shows. A title
+    /// Brings the tracked window in line with what is on screen. A title
     /// identical to the current one is a no-op, so repeated notifications for an
-    /// unchanged window create nothing.
+    /// unchanged window do nothing.
     /// </summary>
     private void SyncWindowSession(long atUtcMs, IntPtr hwnd)
     {
-        if (_state.CurrentSessionId is not { } sessionId)
+        if (_state.CurrentSessionId is null)
         {
             return;
         }
 
-        // Titles disabled: no window session exists or will be created. The
+        // Titles disabled: nothing is held and nothing will be written. The
         // application session history is unaffected (DOCS/Privacy.md §28).
         if (!_sink.RecordWindowTitles)
         {
-            CloseCurrentWindowSession(atUtcMs);
+            _state.ClearWindow();
             return;
         }
 
@@ -270,33 +287,40 @@ internal sealed class SessionEngine
 
         CloseCurrentWindowSession(atUtcMs);
 
-        if (title is null)
+        if (title is not null)
         {
-            return;
+            _state.OpenWindow(title, atUtcMs);
         }
-
-        if (_sink.OpenWindowSession(sessionId, title, atUtcMs) is not { } windowSessionId)
-        {
-            return;
-        }
-
-        _state.OpenWindow(windowSessionId, title, atUtcMs);
-
-        // The title itself is not duplicated into event metadata: it already
-        // lives in window_sessions, and one copy is one place to delete.
-        _sink.AppendEvent(
-            EventType.WINDOW_CHANGED, atUtcMs, _state.CurrentApplicationId, sessionId, null);
     }
 
+    /// <summary>
+    /// Finishes the window currently being watched, and writes it only if it
+    /// lasted long enough to mean something.
+    /// </summary>
     private void CloseCurrentWindowSession(long atUtcMs)
     {
-        if (_state.CurrentWindowSessionId is not { } windowSessionId)
+        if (_state.CurrentWindowTitle is not { } title
+            || _state.CurrentSessionId is not { } sessionId)
         {
+            _state.ClearWindow();
             return;
         }
 
-        _sink.CloseWindowSession(windowSessionId, atUtcMs, _state.CloseWindow(atUtcMs));
+        var startedAt = _state.WindowStartedAtUtcMs;
+        var durationSeconds = _state.CloseWindow(atUtcMs);
         _state.ClearWindow();
+
+        if (durationSeconds < MinWindowSessionSeconds)
+        {
+            return; // churn, not history
+        }
+
+        _sink.RecordWindowSession(sessionId, title, startedAt, atUtcMs, durationSeconds);
+
+        // The title is not duplicated into event metadata: it already lives in
+        // window_sessions, and one copy is one place to delete.
+        _sink.AppendEvent(
+            EventType.WINDOW_CHANGED, startedAt, _state.CurrentApplicationId, sessionId, null);
     }
 
     // -- idle ---------------------------------------------------------------

@@ -113,26 +113,17 @@ internal sealed class RecordingSink : IActivitySink
         session.Reason = reason;
     }
 
-    public long? OpenWindowSession(long sessionId, string title, long startedAtUtcMs)
-    {
-        var window = new RecordedWindowSession
+    public void RecordWindowSession(
+        long sessionId, string title, long startedAtUtcMs, long endedAtUtcMs, int durationSeconds) =>
+        WindowSessions.Add(new RecordedWindowSession
         {
             WindowSessionId = _nextWindowSessionId++,
             SessionId = sessionId,
             Title = title,
             StartedAt = startedAtUtcMs,
-        };
-
-        WindowSessions.Add(window);
-        return window.WindowSessionId;
-    }
-
-    public void CloseWindowSession(long windowSessionId, long endedAtUtcMs, int durationSeconds)
-    {
-        var window = WindowSessions.Single(w => w.WindowSessionId == windowSessionId);
-        window.EndedAt = endedAtUtcMs;
-        window.DurationSeconds = durationSeconds;
-    }
+            EndedAt = endedAtUtcMs,
+            DurationSeconds = durationSeconds,
+        });
 
     public void AppendEvent(
         EventType type, long atUtcMs, long? applicationId, long? sessionId, string? metadataJson) =>
@@ -216,16 +207,28 @@ internal sealed class EngineHarness
     private readonly Dictionary<string, IntPtr> _windowsByExecutable = new(StringComparer.Ordinal);
     private uint _nextProcessId = 1000;
 
+    private readonly RecordingSink? _recording;
+
     public EngineHarness()
+        : this(new RecordingSink())
+    {
+    }
+
+    /// <summary>
+    /// Drives the engine against a real sink — used by the persistence tests to
+    /// run the same scripted days straight through PrivacyGate into SQLite.
+    /// </summary>
+    public EngineHarness(IActivitySink sink)
     {
         Screen = new ScriptedScreen();
-        Sink = new RecordingSink();
-        Engine = new SessionEngine(Sink, Screen);
+        _recording = sink as RecordingSink;
+        Engine = new SessionEngine(sink, Screen);
     }
 
     public ScriptedScreen Screen { get; }
 
-    public RecordingSink Sink { get; }
+    public RecordingSink Sink =>
+        _recording ?? throw new InvalidOperationException("This harness uses a custom sink.");
 
     public SessionEngine Engine { get; }
 

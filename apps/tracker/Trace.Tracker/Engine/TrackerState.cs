@@ -31,8 +31,6 @@ internal sealed class TrackerState
 
     public IntPtr CurrentWindow { get; set; }
 
-    public long? CurrentWindowSessionId { get; private set; }
-
     public string? CurrentWindowTitle { get; private set; }
 
     public long WindowStartedAtUtcMs { get; private set; }
@@ -79,7 +77,6 @@ internal sealed class TrackerState
         CurrentSessionId = null;
         CurrentApplicationId = null;
         CurrentApplication = null;
-        CurrentWindowSessionId = null;
         CurrentWindowTitle = null;
         SessionStartedAtUtcMs = 0;
         WindowStartedAtUtcMs = 0;
@@ -151,9 +148,12 @@ internal sealed class TrackerState
 
     // -- window sessions ----------------------------------------------------
 
-    public void OpenWindow(long windowSessionId, string title, long atUtcMs)
+    /// <summary>
+    /// Starts watching a window. Nothing is persisted yet: a window session is
+    /// written only once it ends, and only if it lasted long enough to matter.
+    /// </summary>
+    public void OpenWindow(string title, long atUtcMs)
     {
-        CurrentWindowSessionId = windowSessionId;
         CurrentWindowTitle = title;
         WindowStartedAtUtcMs = atUtcMs;
     }
@@ -163,11 +163,45 @@ internal sealed class TrackerState
 
     public void ClearWindow()
     {
-        CurrentWindowSessionId = null;
         CurrentWindowTitle = null;
         WindowStartedAtUtcMs = 0;
     }
 
-    public TrackerStateSnapshot Snapshot(long atUtcMs) =>
-        new(atUtcMs, State, CurrentSessionId, CurrentApplicationId, CurrentWindowTitle);
+    /// <summary>
+    /// The active/idle split as it would stand at <paramref name="atUtcMs"/>,
+    /// without advancing anything.
+    ///
+    /// Deliberately non-mutating: a heartbeat is an observation, not a
+    /// transition, and settling on every heartbeat would fragment the
+    /// accumulators for no benefit.
+    /// </summary>
+    public (int ActiveSeconds, int IdleSeconds) PeekAccounting(long atUtcMs)
+    {
+        if (CurrentSessionId is null)
+        {
+            return (0, 0);
+        }
+
+        var elapsed = Math.Max(0, atUtcMs - _anchorUtcMs);
+        var activeMs = IsIdle ? _activeMs : _activeMs + elapsed;
+
+        var totalSeconds = (int)Math.Max(0, (atUtcMs - SessionStartedAtUtcMs) / 1000);
+        var activeSeconds = Math.Clamp((int)Math.Round(activeMs / 1000.0), 0, totalSeconds);
+
+        return (activeSeconds, totalSeconds - activeSeconds);
+    }
+
+    public TrackerStateSnapshot Snapshot(long atUtcMs)
+    {
+        var (activeSeconds, idleSeconds) = PeekAccounting(atUtcMs);
+
+        return new TrackerStateSnapshot(
+            atUtcMs,
+            State,
+            CurrentSessionId,
+            CurrentApplicationId,
+            CurrentWindowTitle,
+            activeSeconds,
+            idleSeconds);
+    }
 }

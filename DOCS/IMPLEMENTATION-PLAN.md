@@ -468,6 +468,27 @@ says short switches stay in the raw data but should not clutter the UI, and
 documented `minSessionSeconds` parameter on `activity.getTimeline`, implemented
 once in the tracker. React renders exactly what it receives.
 
+**[DECISION] Window sessions are written on completion, with a 5-second floor.**
+Running the tracker for real exposed a defect the documentation does not
+anticipate: window titles change for reasons that have nothing to do with the
+user. A terminal with a progress spinner produced **nine window sessions in a
+few seconds**; over a working day that is tens of thousands of rows, plus a
+matching `WINDOW_CHANGED` event each, describing nothing anyone will ever read.
+
+Unlike application sessions — where `Tracking.md` §F deliberately keeps every
+raw transition — this churn is machine-driven and unbounded, so keeping it is
+not preserving truth. The engine therefore holds the window it is watching in
+memory and writes it only once it ends and has lasted at least
+`SessionEngine.MinWindowSessionSeconds` (5 s, the same threshold §F proposes,
+applied to the table that needed it).
+
+Two consequences, both accepted deliberately:
+- Window durations do not sum to their session's duration.
+- The window in progress when a crash happens is lost, though the application
+  session it belonged to is recovered in full. Recovery clamps any window that
+  completed after the last heartbeat back inside the recovered session end, so a
+  window can never outlast its session.
+
 **[DECISION] Every read model applies the same merge.** Milestone 3's live run
 showed how much this matters: Alt-Tab alone produced eight sessions in nine
 seconds, most of them zero-length, including three for the `explorer.exe`
@@ -512,9 +533,18 @@ Win32 watcher ──► Signal (in memory only)
                 Repositories ──► activity.db
 ```
 
-- **Repositories are `internal` and reachable only through `PrivacyGate`.** The
-  engine holds no repository reference. An accidental future write path is a
-  compile error, not a privacy incident.
+- **Repositories are `internal`, and `PrivacyGate` is the only thing that calls
+  them.** The engine depends on `IActivitySink` and holds no repository
+  reference, so there is no route from the state machine to storage that skips
+  the gate. Since both live in one assembly this is enforced by review and by an
+  architecture test rather than by the compiler; a separate assembly per layer
+  would make it a compile error, at the cost of a build split not worth taking
+  for the MVP.
+- **What is gated, and what is not.** Creating a record is gated; finishing one
+  is not. `OpenSession` and `RecordWindowSession` are refused when paused,
+  excluded, or (for titles) switched off. `CloseSession`, `AppendEvent` and
+  `Checkpoint` always proceed — otherwise pausing would strand the open session,
+  to be misreported as a crash on the next start.
 - The gate evaluates, in order: tracking paused → drop everything; app is
   `Trace.exe`/`TraceTracker.exe` → drop (built-in, non-removable, `Tracking.md`
   §Q); app in user exclusion list → drop the app, its title, *and* any event
@@ -705,6 +735,16 @@ Resolved here; no action needed unless noted.
 13. **Search has no defined scope.** Plan: window titles + application names,
     indexed `LIKE`, capped result set. FTS5 only if profiling on a large history
     shows it is needed.
+14. **Window-title churn** (found at Milestone 4, resolved in §7) — machine-driven
+    title updates would have produced tens of thousands of useless rows a day.
+15. **Published tracker size: 136 MB.** Self-contained single-file win-x64 with
+    WinForms and the full BCL. Combined with Electron the installer would be
+    around 300 MB — large, though not unusual for an Electron product. Options
+    for Milestone 8, in order of preference: enable trimming (Trace uses only
+    `NotifyIcon` and `NativeWindow` from WinForms, so the saving is large) and
+    verify SQLitePCLRaw still resolves its provider; or ship framework-dependent
+    and have the installer carry the .NET runtime. Not addressed now because the
+    binary is correct and Milestone 8 owns installer size.
 
 ---
 

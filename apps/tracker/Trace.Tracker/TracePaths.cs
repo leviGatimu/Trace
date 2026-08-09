@@ -33,6 +33,12 @@ public static class TracePaths
     public static string SettingsFile { get; } = Path.Combine(Root, "settings.json");
 
     /// <summary>
+    /// Exists only while the tracker is running. Its presence at startup means
+    /// the previous run was interrupted — see <see cref="Data.RunMarker"/>.
+    /// </summary>
+    public static string RunMarkerFile { get; } = Path.Combine(Root, "tracker.running");
+
+    /// <summary>
     /// Creates the directory tree if absent. Called once at startup, before
     /// anything tries to open a file.
     /// </summary>

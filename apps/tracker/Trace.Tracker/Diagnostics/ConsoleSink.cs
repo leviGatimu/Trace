@@ -16,12 +16,10 @@ internal sealed class ConsoleSink : IActivitySink
 {
     private readonly Dictionary<string, long> _applicationIds = new(StringComparer.Ordinal);
     private readonly Dictionary<long, string> _sessionLabels = [];
-    private readonly Dictionary<long, string> _windowTitles = [];
     private readonly long _startedAtUtcMs;
 
     private long _nextApplicationId = 1;
     private long _nextSessionId = 1;
-    private long _nextWindowSessionId = 1;
 
     public ConsoleSink(long startedAtUtcMs, IReadOnlySet<string> excluded, bool recordWindowTitles)
     {
@@ -65,20 +63,9 @@ internal sealed class ConsoleSink : IActivitySink
             $"idle {Format(idleSeconds)}  ({reason})");
     }
 
-    public long? OpenWindowSession(long sessionId, string title, long startedAtUtcMs)
-    {
-        var windowSessionId = _nextWindowSessionId++;
-        _windowTitles[windowSessionId] = title;
-
-        Write(startedAtUtcMs, $"  WINDOW + \"{title}\"");
-        return windowSessionId;
-    }
-
-    public void CloseWindowSession(long windowSessionId, long endedAtUtcMs, int durationSeconds)
-    {
-        var title = _windowTitles.GetValueOrDefault(windowSessionId, "?");
-        Write(endedAtUtcMs, $"  WINDOW - \"{title}\"  {Format(durationSeconds)}");
-    }
+    public void RecordWindowSession(
+        long sessionId, string title, long startedAtUtcMs, long endedAtUtcMs, int durationSeconds) =>
+        Write(endedAtUtcMs, $"  WINDOW   \"{title}\"  {Format(durationSeconds)}");
 
     public void AppendEvent(
         EventType type, long atUtcMs, long? applicationId, long? sessionId, string? metadataJson)

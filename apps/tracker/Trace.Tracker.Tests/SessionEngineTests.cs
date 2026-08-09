@@ -70,6 +70,7 @@ public class SessionEngineTests
         h.RepeatForegroundEvent();
         h.AdvanceSeconds(1).RepeatForegroundEvent();
         h.AdvanceSeconds(1).RepeatForegroundEvent();
+        h.AdvanceMinutes(10).ShutDown();
 
         Assert.Single(h.Sink.Sessions);
         Assert.Single(h.Sink.WindowSessions);
@@ -86,8 +87,10 @@ public class SessionEngineTests
             .AdvanceMinutes(10);
 
         Assert.Single(h.Sink.Sessions);
-        Assert.Equal(2, h.Sink.WindowSessions.Count);
         Assert.True(h.Sink.SessionFor("code.exe").IsOpen);
+
+        h.ShutDown();
+        Assert.Equal(["main.ts", "index.html"], h.Sink.WindowSessions.Select(w => w.Title));
     }
 
     [Fact]
@@ -139,7 +142,7 @@ public class SessionEngineTests
             .Switch("chrome.exe", "YouTube")
             .AdvanceMinutes(18).ChangeTitle("GitHub")
             .AdvanceMinutes(13).ChangeTitle("Google")
-            .AdvanceMinutes(9);
+            .AdvanceMinutes(9).ShutDown();
 
         Assert.Single(h.Sink.Sessions);
 
@@ -148,7 +151,32 @@ public class SessionEngineTests
         Assert.Equal(["YouTube", "GitHub", "Google"], windows.Select(w => w.Title));
         Assert.Equal(18 * 60, windows[0].DurationSeconds);
         Assert.Equal(13 * 60, windows[1].DurationSeconds);
-        Assert.Null(windows[2].EndedAt);
+        Assert.Equal(9 * 60, windows[2].DurationSeconds);
+    }
+
+    [Fact]
+    public void A_window_shown_only_briefly_is_not_recorded()
+    {
+        // The fix for machine-driven title churn. A terminal with a progress
+        // spinner rewrites its title several times a second; recording each one
+        // would add tens of thousands of meaningless rows a day.
+        var h = new EngineHarness().Start().Switch("terminal.exe", "build");
+
+        for (var frame = 0; frame < 30; frame++)
+        {
+            h.AdvanceSeconds(1).ChangeTitle($"spinner {frame} - build");
+        }
+
+        h.AdvanceMinutes(10).ShutDown();
+
+        // Only the title that actually held long enough to mean something.
+        var window = Assert.Single(h.Sink.WindowSessions);
+        Assert.Equal("spinner 29 - build", window.Title);
+        Assert.Equal(10 * 60, window.DurationSeconds);
+
+        // The application session is unaffected by the churn: 30s of spinner
+        // frames plus 10 minutes of real use.
+        Assert.Equal(30 + (10 * 60), h.Sink.SessionFor("terminal.exe").DurationSeconds);
     }
 
     [Fact]
@@ -156,10 +184,12 @@ public class SessionEngineTests
     {
         var h = new EngineHarness().Start().Switch("chrome.exe", "YouTube");
 
-        h.AdvanceSeconds(5).ChangeTitle("YouTube");
-        h.AdvanceSeconds(5).ChangeTitle("YouTube");
+        h.AdvanceMinutes(5).ChangeTitle("YouTube");
+        h.AdvanceMinutes(5).ChangeTitle("YouTube");
+        h.ShutDown();
 
-        Assert.Single(h.Sink.WindowSessions);
+        var window = Assert.Single(h.Sink.WindowSessions);
+        Assert.Equal(10 * 60, window.DurationSeconds);
     }
 
     [Fact]
