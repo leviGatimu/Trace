@@ -24,6 +24,10 @@ files:
 extraResources:
   - from: ../tracker/Trace.Tracker/bin/Release/net10.0-windows10.0.17763.0/win-x64/publish/TraceTracker.exe
     to: tracker/TraceTracker.exe
+  # The window icon is loaded at runtime, so it has to exist beside the app and
+  # not only be stamped into the executable's resources.
+  - from: ../../brand/trace.ico
+    to: brand/trace.ico
 
 win:
   icon: ../../brand/trace.ico

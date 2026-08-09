@@ -54,6 +54,9 @@ internal sealed class SettingsStore
         // belongs to the user, not to the installer.
         StartWithWindows: false,
         LaunchMinimised: false,
+        // Follow Windows unless the user says otherwise: whichever clock they
+        // already read everywhere else on the machine.
+        ClockFormat: ClockFormat.SYSTEM,
         Theme: ThemePreference.DARK,
         DeveloperLogging: false,
         DataDirectory: TracePaths.DataDirectory,

@@ -13,6 +13,7 @@ const SETTINGS: Settings = {
   retention: 'FOREVER',
   startWithWindows: true,
   launchMinimised: false,
+  clockFormat: 'TWENTY_FOUR_HOUR',
   theme: 'DARK',
   developerLogging: false,
   dataDirectory: 'C:\\Users\\test\\AppData\\Local\\Trace\\Data',
@@ -62,10 +63,10 @@ describe('settings, as the privacy centre', () => {
     mount();
     await gotoSettings();
 
-    expect(await screen.findByText('Trace never records')).toBeDefined();
-    expect(await screen.findByText('· Keystrokes')).toBeDefined();
-    expect(await screen.findByText('· Screenshots')).toBeDefined();
-    expect(await screen.findByText('· Clipboard contents')).toBeDefined();
+    expect(await screen.findByText('Never recorded')).toBeDefined();
+    expect(await screen.findByText('Keystrokes')).toBeDefined();
+    expect(await screen.findByText('Screenshots')).toBeDefined();
+    expect(await screen.findByText('Clipboard contents')).toBeDefined();
   });
 
   it('says that pausing survives a restart, because it does', async () => {
@@ -84,7 +85,7 @@ describe('settings, as the privacy centre', () => {
     mount({}, calls);
 
     await gotoSettings();
-    fireEvent.click(await screen.findByRole('button', { name: 'Pause Tracking' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Pause tracking' }));
 
     await waitFor(() => expect(calls.some(([method]) => method === 'tracking.pause')).toBe(true));
   });

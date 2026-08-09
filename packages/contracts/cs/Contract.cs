@@ -364,6 +364,22 @@ public enum ThemePreference
     SYSTEM,
 }
 
+/// <summary>
+/// How times are shown.
+///
+/// SYSTEM follows the Windows regional setting, which is the right default:
+/// whichever the user already reads everywhere else.
+///
+/// Display only — timestamps are stored and transported as UTC milliseconds and
+/// are unaffected by this.
+/// </summary>
+public enum ClockFormat
+{
+    SYSTEM,
+    TWELVE_HOUR,
+    TWENTY_FOUR_HOUR,
+}
+
 public sealed record Settings(
     bool TrackingEnabled,
     bool RecordWindowTitles,
@@ -373,6 +389,7 @@ public sealed record Settings(
     RetentionPolicy Retention,
     bool StartWithWindows,
     bool LaunchMinimised,
+    ClockFormat ClockFormat,
     ThemePreference Theme,
     bool DeveloperLogging,
     string DataDirectory,

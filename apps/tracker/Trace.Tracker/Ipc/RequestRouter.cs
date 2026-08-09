@@ -225,6 +225,7 @@ internal sealed class RequestRouter
             Retention = patch.Retention ?? current.Retention,
             StartWithWindows = patch.StartWithWindows ?? current.StartWithWindows,
             LaunchMinimised = patch.LaunchMinimised ?? current.LaunchMinimised,
+            ClockFormat = patch.ClockFormat ?? current.ClockFormat,
             Theme = patch.Theme ?? current.Theme,
             DeveloperLogging = patch.DeveloperLogging ?? current.DeveloperLogging,
             OnboardingCompleted = patch.OnboardingCompleted ?? current.OnboardingCompleted,
@@ -363,6 +364,7 @@ internal sealed record SettingsPatch(
     RetentionPolicy? Retention,
     bool? StartWithWindows,
     bool? LaunchMinimised,
+    ClockFormat? ClockFormat,
     ThemePreference? Theme,
     bool? DeveloperLogging,
     bool? OnboardingCompleted);

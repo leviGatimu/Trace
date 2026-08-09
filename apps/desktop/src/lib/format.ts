@@ -1,4 +1,4 @@
-import type { DayRange } from '@trace/contracts';
+import type { ClockFormat, DayRange } from '@trace/contracts';
 
 /**
  * Formatting only.
@@ -39,12 +39,48 @@ export function liveDuration(seconds: number): string {
     : `${minutes}m ${pad(remaining)}s`;
 }
 
-/** Local wall-clock time, e.g. `09:02`. Timestamps arrive in UTC. */
+/**
+ * The user's clock preference.
+ *
+ * Held here as module state rather than passed to every formatter: times appear
+ * in a dozen components, and threading a display preference through all of them
+ * would add a prop to every one for no gain. `ClockFormatSync` keeps this in
+ * step with the stored setting and re-renders what is on screen when it changes.
+ */
+let clockFormat: ClockFormat = 'SYSTEM';
+
+export function setClockFormat(format: ClockFormat): void {
+  clockFormat = format;
+}
+
+export function getClockFormat(): ClockFormat {
+  return clockFormat;
+}
+
+/**
+ * `hour12` for `toLocaleTimeString`.
+ *
+ * `undefined` rather than a boolean for SYSTEM: Intl then uses the locale's own
+ * convention, which is exactly what "follow Windows" means. Passing `false`
+ * would force 24-hour on everyone.
+ */
+function hour12(): boolean | undefined {
+  switch (clockFormat) {
+    case 'TWELVE_HOUR':
+      return true;
+    case 'TWENTY_FOUR_HOUR':
+      return false;
+    default:
+      return undefined;
+  }
+}
+
+/** Local wall-clock time, e.g. `09:02` or `9:02 AM`. Timestamps arrive in UTC. */
 export function clockTime(utcMs: number): string {
   return new Date(utcMs).toLocaleTimeString(undefined, {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false,
+    hour12: hour12(),
   });
 }
 
@@ -53,7 +89,7 @@ export function clockTimeWithSeconds(utcMs: number): string {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: false,
+    hour12: hour12(),
   });
 }
 

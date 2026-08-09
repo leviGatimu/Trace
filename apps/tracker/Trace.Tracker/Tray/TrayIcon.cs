@@ -175,6 +175,16 @@ internal sealed class TrayIcon : IDisposable
         return candidates.Select(Path.GetFullPath).FirstOrDefault(File.Exists);
     }
 
+    /// <summary>
+    /// Loads a tray icon at the size Windows will actually draw it.
+    ///
+    /// <c>new Icon(stream)</c> takes whichever frame the file happens to list
+    /// first, which for a multi-resolution .ico is usually 256×256 — Windows
+    /// then squashes it into the notification area and the result is a soft,
+    /// slightly wrong-looking blob. Asking for the small-icon metric picks the
+    /// frame drawn for that size, which is the whole reason the file carries
+    /// several.
+    /// </summary>
     private static Icon LoadIcon(string name)
     {
         var assembly = Assembly.GetExecutingAssembly();
@@ -182,7 +192,7 @@ internal sealed class TrayIcon : IDisposable
                            ?? throw new InvalidOperationException(
                                $"The icon '{name}' is missing from the build.");
 
-        return new Icon(stream);
+        return new Icon(stream, SystemInformation.SmallIconSize);
     }
 
     private static string Capitalise(string value) =>

@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron';
 import { TrackerClient, type ConnectionState } from './tracker-client.js';
@@ -102,6 +103,12 @@ function createWindow(): void {
     title: 'Trace',
     autoHideMenuBar: true,
 
+    // The title bar and taskbar icon. electron-builder stamps this into the
+    // packaged executable, but a development run has no such resource and falls
+    // back to Electron's own icon — which is why the window has been wearing
+    // somebody else's logo.
+    icon: resolveAppIcon(),
+
     // Solid. Translucency was tried and rejected: it made a dense tool look
     // like a widget, and it fights with the one thing this window is for —
     // reading columns of small text.
@@ -141,6 +148,22 @@ function createWindow(): void {
   } else {
     void mainWindow.loadFile(path.join(directory, '../dist/index.html'));
   }
+}
+
+/**
+ * The application icon.
+ *
+ * Packaged, it ships beside the executable in resources; in development it is
+ * still in `brand/` at the repository root. Returns undefined rather than a
+ * missing path if neither exists, so a stripped install shows Electron's icon
+ * instead of failing to open a window.
+ */
+function resolveAppIcon(): string | undefined {
+  const candidates = app.isPackaged
+    ? [path.join(process.resourcesPath, 'brand', 'trace.ico')]
+    : [path.resolve(directory, '../../../brand/trace.ico')];
+
+  return candidates.find((candidate) => existsSync(candidate));
 }
 
 function showWindow(): void {

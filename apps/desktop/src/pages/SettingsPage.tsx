@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import type { RetentionPolicy, Settings } from '@trace/contracts';
+import type { ClockFormat, RetentionPolicy, Settings } from '@trace/contracts';
 import {
   Button,
   EmptyState,
@@ -92,7 +92,7 @@ export function SettingsPage() {
       <PageHeader title="Settings" meta="Privacy and data" />
 
       {note && (
-        <div className="mb-6 rounded-md border border-hair px-4 py-3 text-ink-2">
+        <div className="mb-7 border-l-2 border-accent pl-4 text-ink-2">
           {note}
           <button
             type="button"
@@ -105,7 +105,7 @@ export function SettingsPage() {
       )}
 
       <Section label="Tracking">
-        <div className="mb-4 flex items-center gap-2.5 rounded-md border border-hair px-4 py-3">
+        <div className="mb-3 flex items-center gap-2.5">
           <StatusDot state={!tracking ? 'paused' : status?.state === 'IDLE' ? 'idle' : 'live'} />
           <span className="flex-1 text-ink">
             {tracking ? 'Trace is recording your activity.' : 'Trace is not recording anything.'}
@@ -114,7 +114,7 @@ export function SettingsPage() {
             variant={tracking ? 'default' : 'accent'}
             onClick={() => toggleTracking.mutate(!tracking)}
           >
-            {tracking ? 'Pause Tracking' : 'Resume Tracking'}
+            {tracking ? 'Pause tracking' : 'Resume tracking'}
           </Button>
         </div>
 
@@ -175,6 +175,25 @@ export function SettingsPage() {
 
       <ExcludedApplications settings={current} onSave={(patch) => save.mutate(patch)} />
 
+      <Section label="Display">
+        <SettingRow
+          label="Clock"
+          description="How times are shown throughout Trace. This changes the display only — nothing recorded is affected."
+          control={
+            <Select
+              label="Clock format"
+              value={current.clockFormat}
+              onChange={(clockFormat) => save.mutate({ clockFormat: clockFormat as ClockFormat })}
+              options={[
+                { value: 'SYSTEM', label: `Match Windows (${systemClockExample()})` },
+                { value: 'TWENTY_FOUR_HOUR', label: '24-hour · 14:30' },
+                { value: 'TWELVE_HOUR', label: '12-hour · 2:30 PM' },
+              ]}
+            />
+          }
+        />
+      </Section>
+
       <Section label="Windows">
         <SettingRow
           label="Start Trace with Windows"
@@ -226,6 +245,19 @@ export function SettingsPage() {
 }
 
 /**
+ * What "Match Windows" will actually look like, shown in the option itself.
+ *
+ * Otherwise the default option is the only one whose result the user cannot
+ * predict without selecting it and looking.
+ */
+function systemClockExample(): string {
+  return new Date(2026, 0, 1, 14, 30).toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+/**
  * The list of things Trace never touches.
  *
  * Stating it in the product, not only in marketing, is the point of
@@ -246,14 +278,14 @@ function NeverCollected() {
   ];
 
   return (
-    <div className="mt-5 rounded-md border border-hair px-4 py-3.5">
-      <p className="text-ink">Trace never records</p>
-      <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-ink-2">
+    <div className="mt-8">
+      <p className="eyebrow mb-3">Never recorded</p>
+      <ul className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-ink-3 sm:grid-cols-3">
         {never.map((item) => (
-          <li key={item}>· {item}</li>
+          <li key={item}>{item}</li>
         ))}
       </ul>
-      <p className="mt-3 border-t border-hair pt-3 text-ink-4">
+      <p className="mt-5 text-ink-4">
         Your activity never leaves this computer. There is no account and no server.
       </p>
     </div>

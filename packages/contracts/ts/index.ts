@@ -373,6 +373,20 @@ export interface SearchResult {
 export type RetentionPolicy = 'FOREVER' | 'ONE_YEAR' | 'NINETY_DAYS' | 'THIRTY_DAYS';
 export type ThemePreference = 'DARK' | 'LIGHT' | 'SYSTEM';
 
+/**
+ * How times are shown.
+ *
+ * `SYSTEM` follows the Windows regional setting, which is the right default:
+ * whichever the user already reads everywhere else. The explicit choices exist
+ * because a 24-hour clock is easier to scan in a column even for people whose
+ * region uses 12-hour, and the reverse is true for anyone who does not read
+ * 24-hour fluently.
+ *
+ * Display only. Timestamps are stored and transported in UTC milliseconds and
+ * are unaffected.
+ */
+export type ClockFormat = 'SYSTEM' | 'TWELVE_HOUR' | 'TWENTY_FOUR_HOUR';
+
 export interface Settings {
   // Tracking
   /** Master switch. False == user paused. Persisted, survives reboot. */
@@ -395,7 +409,8 @@ export interface Settings {
   startWithWindows: boolean;
   launchMinimised: boolean;
 
-  // General
+  // Display
+  clockFormat: ClockFormat;
   theme: ThemePreference;
   /** Enables Debug-level logging. Off by default: Debug may log window titles. */
   developerLogging: boolean;

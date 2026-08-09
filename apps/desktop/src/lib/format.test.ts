@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest';
-import { duration, liveDuration, localDayRange, tidyWindowTitle } from './format';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  clockTime,
+  duration,
+  liveDuration,
+  localDayRange,
+  setClockFormat,
+  tidyWindowTitle,
+} from './format';
 
 describe('duration', () => {
   it('reads the way a person would say it', () => {
@@ -39,6 +46,38 @@ describe('localDayRange', () => {
     expect(start.getHours()).toBe(0);
     expect(start.getMinutes()).toBe(0);
     expect(start.getDate()).toBe(9);
+  });
+});
+
+describe('clockTime', () => {
+  // The preference is module state, so it must not leak between tests.
+  afterEach(() => setClockFormat('SYSTEM'));
+
+  const twoThirty = new Date(2026, 0, 1, 14, 30).getTime();
+
+  it('shows a 24-hour clock when asked for one', () => {
+    setClockFormat('TWENTY_FOUR_HOUR');
+    expect(clockTime(twoThirty)).toBe('14:30');
+  });
+
+  it('shows a 12-hour clock when asked for one', () => {
+    setClockFormat('TWELVE_HOUR');
+
+    // The separator and the AM/PM marker are the locale's business; that it is
+    // no longer 14 is the point.
+    expect(clockTime(twoThirty)).toMatch(/2:30/);
+    expect(clockTime(twoThirty)).not.toMatch(/14/);
+  });
+
+  it('follows the locale when set to system', () => {
+    setClockFormat('SYSTEM');
+
+    const locale = new Date(twoThirty).toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    expect(clockTime(twoThirty)).toBe(locale);
   });
 });
 

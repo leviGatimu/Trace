@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { HashRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { Onboarding } from '@/components/Onboarding';
 import { useConnection } from '@/hooks/useTracker';
+import { getClockFormat, setClockFormat } from '@/lib/format';
 import { bridge, trace } from '@/services/trace';
 import { ApplicationsPage } from '@/pages/ApplicationsPage';
 import { OverviewPage } from '@/pages/OverviewPage';
@@ -108,6 +109,36 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
   return <Onboarding onComplete={complete.mutate} busy={complete.isPending} />;
 }
 
+/**
+ * Keeps the clock formatter in step with the stored setting.
+ *
+ * The formatters are plain functions reading module state, so changing the
+ * preference does not by itself repaint anything already on screen. Invalidating
+ * the activity queries is what re-renders every visible time — and it only runs
+ * when the value actually changes, not on every settings read.
+ */
+function ClockFormatSync() {
+  const queryClient = useQueryClient();
+  const connection = useConnection();
+
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: trace.settings,
+    enabled: connection.status === 'connected',
+  });
+
+  const format = settings?.clockFormat;
+
+  useEffect(() => {
+    if (format && format !== getClockFormat()) {
+      setClockFormat(format);
+      void queryClient.invalidateQueries({ queryKey: ['activity'] });
+    }
+  }, [format, queryClient]);
+
+  return null;
+}
+
 /** Follows the page the tray asked for. Must live inside the router. */
 function TrayNavigation() {
   const navigate = useNavigate();
@@ -126,6 +157,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TrackerPushes />
+      <ClockFormatSync />
       <OnboardingGate>
         {/*
           Hash routing: the packaged application is loaded from file://, where
