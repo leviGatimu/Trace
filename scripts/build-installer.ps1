@@ -35,8 +35,10 @@ Start-Sleep -Milliseconds 500
 
 if (-not $SkipIcons) {
     Step 'Brand assets'
+    # No --nologo or -v here: dotnet run forwards unrecognised options to the
+    # program, and the forge took "--nologo" as its output directory.
     dotnet run --project (Join-Path $root 'tools\Trace.IconForge\Trace.IconForge.csproj') `
-        -c Release --nologo -v quiet -- $root
+        -c Release -- $root
     if ($LASTEXITCODE -ne 0) { throw 'Icon generation failed.' }
 }
 
