@@ -46,16 +46,44 @@ internal sealed class TraceDatabase : IDisposable
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
-        var connection = OpenConnection(path, readOnly: false);
+        SqliteConnection? opening = null;
+        SqliteConnection connection;
 
         try
         {
+            opening = OpenConnection(path, readOnly: false);
+            connection = opening;
+
             if (afterUncleanExit && !PassesIntegrityCheck(connection))
             {
+                opening = null;
                 connection.Dispose();
                 connection = QuarantineAndRecreate(path);
             }
+        }
+        catch (SqliteException ex) when (IsUnreadableFile(ex))
+        {
+            // The connection object exists even though the first statement
+            // failed, and it holds the file open. Without disposing it, the
+            // quarantine move fails with a sharing violation and the tracker
+            // still cannot start.
+            opening?.Dispose();
+            SqliteConnection.ClearPool(new SqliteConnection($"Data Source={path}"));
 
+            // Damage bad enough that SQLite will not open the file at all — a
+            // truncated or overwritten header, which is what a half-written page
+            // after a power cut looks like.
+            //
+            // This surfaces here rather than from the integrity check because
+            // SQLite opens lazily: the first statement is what fails, so the
+            // check never got the chance to run. Before this, a corrupt database
+            // stopped the tracker from starting at all.
+            Log.Error($"The activity database could not be opened ({ex.SqliteErrorCode}).", ex);
+            connection = QuarantineAndRecreate(path);
+        }
+
+        try
+        {
             var database = new TraceDatabase(path, connection);
             database.Migrate();
             return database;
@@ -66,6 +94,19 @@ internal sealed class TraceDatabase : IDisposable
             throw;
         }
     }
+
+    /// <summary>
+    /// Whether the file itself is unusable, as opposed to merely busy.
+    ///
+    /// The distinction matters more than it looks: quarantining on any SQLite
+    /// error would move a perfectly good database aside because another process
+    /// held a lock for a moment, and the user would lose their history to a
+    /// transient.
+    /// </summary>
+    private static bool IsUnreadableFile(SqliteException exception) =>
+        exception.SqliteErrorCode is
+            26 or // SQLITE_NOTADB — the header is not a database
+            11;   // SQLITE_CORRUPT
 
     /// <summary>
     /// Runs <paramref name="work"/> against the write connection inside a
@@ -142,6 +183,26 @@ internal sealed class TraceDatabase : IDisposable
         }.ToString();
 
         var connection = new SqliteConnection(connectionString);
+
+        try
+        {
+            Configure(connection, readOnly);
+        }
+        catch
+        {
+            // SQLite opens lazily, so a damaged file fails on the first
+            // statement rather than on Open(). Without disposing here the
+            // connection is left holding the file, and the caller's attempt to
+            // move it aside fails with a sharing violation.
+            connection.Dispose();
+            throw;
+        }
+
+        return connection;
+    }
+
+    private static void Configure(SqliteConnection connection, bool readOnly)
+    {
         connection.Open();
 
         using var pragmas = connection.CreateCommand();
@@ -157,8 +218,6 @@ internal sealed class TraceDatabase : IDisposable
               PRAGMA busy_timeout = 5000;
               """;
         pragmas.ExecuteNonQuery();
-
-        return connection;
     }
 
     private static bool PassesIntegrityCheck(SqliteConnection connection)
@@ -194,7 +253,13 @@ internal sealed class TraceDatabase : IDisposable
     /// </summary>
     private static SqliteConnection QuarantineAndRecreate(string path)
     {
-        var quarantined = TracePaths.QuarantinedDatabaseFile(DateTimeOffset.UtcNow);
+        // Beside the file being moved, not in the default data folder — the two
+        // are the same in production but not when the database lives anywhere
+        // else, and quarantining into an unrelated directory would scatter the
+        // user's damaged history somewhere they will never find it.
+        var quarantined = Path.Combine(
+            Path.GetDirectoryName(Path.GetFullPath(path)) ?? TracePaths.DataDirectory,
+            $"activity.corrupt-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}.db");
 
         try
         {
