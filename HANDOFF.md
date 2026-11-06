@@ -1,9 +1,9 @@
 # HANDOFF
 
 ## Current Task
-**Latest (2026-11-06):** the marketing site now lives here as `apps/website`, an
-npm workspace; its own notes are in `apps/website/HANDOFF.md`. Pushed on branch
-`website-monorepo`, **not yet merged to `main`**.
+**Latest (2026-11-06):** the marketing site lives here as `apps/website`, an npm
+workspace, with its own notes in `apps/website/HANDOFF.md`. Merged to `main`;
+installer published as GitHub release `v0.1.0`.
 
 Building **Trace** — a private, local-only Windows activity-history desktop app
 (Electron/React UI + separate C#/.NET background tracker + local SQLite).
@@ -342,10 +342,14 @@ first.** Grep for `% dayMs` and for any arithmetic on `nowUtcMs` that pretends
 to know where a day starts.
 
 ### Exact next step on resume
-0. **Website, open items:** merge `website-monorepo`; publish a GitHub release with
-   the installer, or `/Trace-Setup-0.1.0.exe` 404s anywhere but this machine (the
-   exe is gitignored in `apps/website/public/`); fix the hero cards covering the
-   headline at 1440px; replace `site.url` (`trace.app` is a placeholder).
+0. **Website, open items:** hosted by the Vercel project `trace` (Root Directory
+   `apps/website`). The owner wanted `traceapp.vercel.app`, but another account holds
+   it (403), so `site.url` is `trace-nu-nine.vercel.app`; once a name is chosen, add
+   it to the project and update `site.url`. The hero cards cover the headline at
+   1440px. The installer is unsigned, so SmartScreen warns. `electron/
+   tracker-client.ts` runs `whoami` from PATH: launched from Git Bash it finds the
+   Unix one and hangs on "Connecting"; use the absolute System32 path. `--probe`
+   fails `applications.getDetail` because it does not send the local midnights.
 1. **Finish Milestone 9.** The list is in the plan §12; what is left, in order:
 
    - **Soak** (`scripts/soak.ps1`, passive, samples every 60 s to

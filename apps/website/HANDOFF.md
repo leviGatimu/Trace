@@ -65,6 +65,7 @@ and check the hero's draggable cards do not collide with the headline at
 1024–1280px. Then set `site.url` and move the installer to a GitHub release.
 
 ## Recently Completed
+- Download buttons now use the v0.1.0 GitHub release asset instead of `public/`.
 - Moved into the Trace repository as the `apps/website` npm workspace. `next`
   is hoisted, so `turbopack.root` points at the repository root. Run with
   `npm run dev:website` from there.

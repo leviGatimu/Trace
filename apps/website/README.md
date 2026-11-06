@@ -35,20 +35,18 @@ src/
     ...
   lib/site.ts         version, installer name and links — the single source of truth
 public/
-  Trace-Setup-*.exe   the installer the download buttons point at
   screenshots/        real captures from the application
 ```
 
-## Two things to know before deploying
+## Before deploying
 
-**The installer is 132 MB and is deliberately git-ignored.** It sits in
-`public/` so the site works offline and in development. For a real deployment,
-publish it as a GitHub release asset and point `installer.href` in
-`src/lib/site.ts` at that URL — nothing else needs to change.
+**The installer is not part of the site.** The download buttons link to the
+GitHub release asset for `site.version` in `src/lib/site.ts`, so a new version
+needs its release published before the site is deployed. To build it:
+`npm run installer`.
 
-**`site.url` in `src/lib/site.ts` is a placeholder.** It only affects the
-absolute URLs in the Open Graph tags. Set it to the real domain before going
-live.
+**On Vercel, set Root Directory to `apps/website`.** It is a workspace of this
+repository, and `next` is installed at the repository root.
 
 ## Design notes
 
