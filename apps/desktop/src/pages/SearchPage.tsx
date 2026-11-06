@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AppSwatch, EmptyState, ErrorState, Skeleton } from '@/components/primitives';
 import { SessionPanel } from '@/components/SessionPanel';
 import { useConnection, useSearch } from '@/hooks/useTracker';
@@ -13,7 +14,14 @@ import { clockTime, duration, shortDate, tidyWindowTitle } from '@/lib/format';
  * than daily totals pays off: "when was I last looking at that?" is answerable.
  */
 export function SearchPage() {
-  const [text, setText] = useState('');
+  /*
+    The title bar's field hands its query over as `?q=`, and this page is where
+    it gets answered. Seeding from the parameter rather than passing state means
+    the arriving query survives a reload and can be linked to, the same way a
+    timeline session can.
+  */
+  const [searchParams] = useSearchParams();
+  const [text, setText] = useState(() => searchParams.get('q') ?? '');
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -22,6 +30,15 @@ export function SearchPage() {
   const { data, isPending, isFetching, error, refetch, isDebouncing } = useSearch(text, connected);
 
   useEffect(() => inputRef.current?.focus(), []);
+
+  // Arriving again with a different query — a second search from the title bar
+  // while already on this page — must replace what is in the field.
+  const query = searchParams.get('q');
+  useEffect(() => {
+    if (query) {
+      setText(query);
+    }
+  }, [query]);
 
   const tooShort = text.trim().length > 0 && text.trim().length < 2;
   const searching = text.trim().length >= 2;

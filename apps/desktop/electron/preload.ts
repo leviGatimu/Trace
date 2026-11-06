@@ -49,6 +49,26 @@ const api = {
     ipcRenderer.on('trace:push', listener);
     return () => ipcRenderer.off('trace:push', listener);
   },
+
+  /**
+   * The frameless window's caption buttons.
+   *
+   * Named `windowControls` rather than `window` so nothing in this file — or in
+   * anything reading the bridge — has a property that shadows the global.
+   */
+  windowControls: {
+    minimize: (): Promise<void> => ipcRenderer.invoke('trace:window-minimize'),
+    toggleMaximize: (): Promise<boolean> => ipcRenderer.invoke('trace:window-toggle-maximize'),
+    close: (): Promise<void> => ipcRenderer.invoke('trace:window-close'),
+    isMaximized: (): Promise<boolean> => ipcRenderer.invoke('trace:window-is-maximized'),
+
+    onMaximizedChange(handler: (maximized: boolean) => void) {
+      const listener = (_event: unknown, state: { maximized: boolean }) =>
+        handler(state.maximized);
+      ipcRenderer.on('trace:window-state', listener);
+      return () => ipcRenderer.off('trace:window-state', listener);
+    },
+  },
 };
 
 contextBridge.exposeInMainWorld('trace', api);

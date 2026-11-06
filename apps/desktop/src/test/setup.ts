@@ -18,6 +18,12 @@ export interface MockBridgeOptions {
   onRequest?: (method: string, params?: unknown) => void;
 }
 
+export interface MockWindowControls {
+  minimize: ReturnType<typeof vi.fn>;
+  toggleMaximize: ReturnType<typeof vi.fn>;
+  close: ReturnType<typeof vi.fn>;
+}
+
 export function installMockBridge(options: MockBridgeOptions = {}) {
   const connection: ConnectionState = options.connection ?? {
     status: 'connected',
@@ -26,6 +32,18 @@ export function installMockBridge(options: MockBridgeOptions = {}) {
   };
 
   const restartTracker = vi.fn(async () => ({ started: true, message: 'Starting…' }));
+
+  /*
+    The window is frameless, so these are the only way to move or close it.
+    Included in the mock — rather than left off to exercise the optional path —
+    because a test that renders the shell should be able to assert that pressing
+    Close actually asks for the window to close.
+  */
+  const windowControls: MockWindowControls = {
+    minimize: vi.fn(async () => {}),
+    toggleMaximize: vi.fn(async () => false),
+    close: vi.fn(async () => {}),
+  };
 
   const bridge = {
     async request(method: string, params?: unknown) {
@@ -49,9 +67,14 @@ export function installMockBridge(options: MockBridgeOptions = {}) {
     restartTracker,
     onConnectionState: () => () => {},
     onPush: () => () => {},
+    windowControls: {
+      ...windowControls,
+      isMaximized: async () => false,
+      onMaximizedChange: () => () => {},
+    },
   };
 
   Object.defineProperty(window, 'trace', { value: bridge, writable: true, configurable: true });
 
-  return { restartTracker };
+  return { restartTracker, windowControls };
 }

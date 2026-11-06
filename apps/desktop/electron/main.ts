@@ -101,7 +101,22 @@ function createWindow(): void {
     minHeight: 640,
     show: false,
     title: 'Trace',
-    autoHideMenuBar: true,
+
+    /*
+      Frameless. Trace draws its own title bar (src/components/TitleBar.tsx),
+      because the default one is a strip of somebody else's design language
+      across the top of a window that is otherwise entirely ours.
+
+      `frame: false` rather than `titleBarStyle: 'hidden'` with a
+      `titleBarOverlay`: the overlay keeps Windows' own control glyphs, and the
+      point of this is to stop using them. What we give up is the Windows 11
+      Snap Layouts flyout, which only appears on a native maximise button —
+      Win+Z still opens it, and dragging to a screen edge still snaps.
+
+      The window stays resizable: Electron keeps the sizing borders on a
+      frameless window, and double-clicking a drag region still maximises.
+    */
+    frame: false,
 
     // The title bar and taskbar icon. electron-builder stamps this into the
     // packaged executable, but a development run has no such resource and falls
@@ -135,6 +150,20 @@ function createWindow(): void {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  /*
+    The maximise button has two shapes, and the window can change state without
+    the button being what changed it — Win+Up, a double-click on the drag
+    region, dragging to the top of the screen. Pushing the state means the glyph
+    is never a lie about what clicking it will do.
+  */
+  const publishWindowState = () => {
+    mainWindow?.webContents.send('trace:window-state', {
+      maximized: mainWindow.isMaximized(),
+    });
+  };
+  mainWindow.on('maximize', publishWindowState);
+  mainWindow.on('unmaximize', publishWindowState);
 
   // Nothing in Trace should open a browser, but if a link ever appears it must
   // not navigate the application window out from under the user.
@@ -221,6 +250,43 @@ function registerHandlers(): void {
   });
 
   ipcMain.handle('trace:open-folder', (_event, folder: string) => shell.openPath(folder));
+
+  /*
+    Window controls.
+
+    These exist only because the window is frameless; they do exactly what the
+    caption buttons used to do and nothing more. Each resolves the window at
+    call time rather than closing over it, so a control pressed after the window
+    was recreated acts on the current one instead of a dead reference.
+  */
+  ipcMain.handle('trace:window-minimize', () => {
+    mainWindow?.minimize();
+  });
+
+  ipcMain.handle('trace:window-toggle-maximize', () => {
+    if (!mainWindow) {
+      return false;
+    }
+
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+
+    return mainWindow.isMaximized();
+  });
+
+  /*
+    close(), not destroy(): it runs `window-all-closed`, which stops the pipe
+    client and quits cleanly. Tracking is unaffected either way — that is a
+    different process.
+  */
+  ipcMain.handle('trace:window-close', () => {
+    mainWindow?.close();
+  });
+
+  ipcMain.handle('trace:window-is-maximized', () => mainWindow?.isMaximized() ?? false);
 }
 
 /**

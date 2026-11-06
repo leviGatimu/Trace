@@ -8,6 +8,7 @@ import {
 import { useEffect, useState } from 'react';
 import { HashRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { Onboarding } from '@/components/Onboarding';
+import { TitleBar } from '@/components/TitleBar';
 import { useConnection } from '@/hooks/useTracker';
 import { getClockFormat, setClockFormat } from '@/lib/format';
 import { bridge, trace } from '@/services/trace';
@@ -160,28 +161,43 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <TrackerPushes />
       <ClockFormatSync />
-      <OnboardingGate>
+      {/*
+        Hash routing: the packaged application is loaded from file://, where
+        browser history paths do not resolve.
+      */}
+      <HashRouter>
+        <TrayNavigation />
+
         {/*
-          Hash routing: the packaged application is loaded from file://, where
-          browser history paths do not resolve.
+          The title bar sits outside the onboarding gate, and above it.
+
+          The window is frameless, so this strip carries the only way to move,
+          minimise or close it. Rendering it inside the gate would mean a first
+          run had no way out of its own welcome screen. It is inside the router
+          because its search field navigates.
         */}
-        <HashRouter>
-          <TrayNavigation />
-          <Routes>
-            <Route element={<Shell />}>
-              <Route path="/" element={<OverviewPage />} />
-              <Route path="/timeline" element={<TimelinePage />} />
-              <Route path="/applications" element={<ApplicationsPage />} />
-              <Route path="/applications/:applicationId" element={<ApplicationsPage />} />
-              <Route path="/calendar" element={<CalendarPage />} />
-              <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/search" element={<SearchPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Route>
-          </Routes>
-        </HashRouter>
-      </OnboardingGate>
+        <div className="flex h-full flex-col">
+          <TitleBar />
+
+          <div className="min-h-0 flex-1">
+            <OnboardingGate>
+              <Routes>
+                <Route element={<Shell />}>
+                  <Route path="/" element={<OverviewPage />} />
+                  <Route path="/timeline" element={<TimelinePage />} />
+                  <Route path="/applications" element={<ApplicationsPage />} />
+                  <Route path="/applications/:applicationId" element={<ApplicationsPage />} />
+                  <Route path="/calendar" element={<CalendarPage />} />
+                  <Route path="/analytics" element={<AnalyticsPage />} />
+                  <Route path="/search" element={<SearchPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Route>
+              </Routes>
+            </OnboardingGate>
+          </div>
+        </div>
+      </HashRouter>
     </QueryClientProvider>
   );
 }

@@ -49,6 +49,24 @@ launch → tray → uninstall all verified on this machine.
       from the doc: categories, rules, favourites, notes, reports.
 - [ ] Milestone 10 — polish
 
+### Uncommitted: the custom title bar (2026-08-10)
+The dashboard window is now **frameless** and draws its own title bar.
+`apps/desktop/src/components/TitleBar.tsx` — 64px, brand mark at the left, a
+centred search field (Ctrl+K, Enter hands the query to `/search?q=`), and custom
+minimise / maximise / close. Window control IPC is in `electron/main.ts` +
+`preload.ts` (`windowControls`), styles at the foot of `src/styles/app.css`.
+34 UI tests pass (5 new); built and looked at in a running window.
+
+Two things a future session should know:
+- **The rail's TRACE wordmark was removed.** The title bar directly above it
+  carries the mark and the name now, and two stacked read as a bug.
+- **The bar is not truly translucent.** The window is opaque, so there is
+  nothing behind it to blur; the glass read comes from a gradient and a
+  top-edge highlight. Real translucency would mean Windows 11 acrylic on the
+  window, which `createWindow` explicitly rejected once already.
+- **Snap Layouts** (hovering the maximise button on Windows 11) is gone with the
+  native frame. Win+Z and edge-dragging still work.
+
 ## Working Notes
 
 ### Decisions locked with the owner (plan §14)

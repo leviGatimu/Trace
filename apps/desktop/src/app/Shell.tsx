@@ -48,15 +48,16 @@ const NAV = [
   { to: '/search', label: 'Search', end: false },
 ];
 
+/*
+  No wordmark at the top of the rail any more: the title bar directly above it
+  now carries the mark and the name, and two of them stacked read as a mistake
+  rather than as branding. The rail keeps its top padding so the first
+  navigation item is not welded to the bar.
+*/
 function Rail() {
   return (
     <div className="flex w-[212px] shrink-0 flex-col bg-rail">
-      <div className="flex items-center gap-2.5 px-5 pb-8 pt-6">
-        <Mark />
-        <span className="text-[13px] font-semibold tracking-[0.18em] text-ink">TRACE</span>
-      </div>
-
-      <nav className="flex-1 px-3">
+      <nav className="flex-1 px-3 pt-5">
         {NAV.map((item) => (
           <Item key={item.to} {...item} />
         ))}
@@ -67,16 +68,6 @@ function Rail() {
 
       <LiveActivity />
     </div>
-  );
-}
-
-function Mark() {
-  return (
-    <svg width="13" height="15" viewBox="0 0 16 18" fill="none" aria-hidden>
-      <rect x="0" y="0" width="16" height="3.2" rx="1.6" fill="var(--color-ink)" />
-      <rect x="6.4" y="5" width="3.2" height="6.4" rx="1.6" fill="var(--color-ink)" />
-      <circle cx="8" cy="15.4" r="2.5" fill="var(--color-accent)" />
-    </svg>
   );
 }
 

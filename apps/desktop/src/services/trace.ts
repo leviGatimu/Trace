@@ -40,6 +40,15 @@ interface TraceBridge {
   onConnectionState(handler: (state: ConnectionState) => void): () => void;
   onNavigate(handler: (route: string) => void): () => void;
   onPush(handler: (message: { event: string; data: unknown }) => void): () => void;
+
+  /** Present only in a real preload — see the note on `bridge.windowControls`. */
+  windowControls?: {
+    minimize(): Promise<void>;
+    toggleMaximize(): Promise<boolean>;
+    close(): Promise<void>;
+    isMaximized(): Promise<boolean>;
+    onMaximizedChange(handler: (maximized: boolean) => void): () => void;
+  };
 }
 
 declare global {
@@ -141,4 +150,20 @@ export const bridge = {
   onNavigate: (handler: (route: string) => void) =>
     // Optional so a stale preload — or a test bridge — cannot break the window.
     window.trace.onNavigate?.(handler) ?? (() => {}),
+
+  /**
+   * The frameless window's caption buttons.
+   *
+   * Every call is optional for the same reason as `onNavigate`, and it matters
+   * more here: these are the only way to close the window, so a title bar that
+   * threw on a bridge without them would be a window with no way out.
+   */
+  windowControls: {
+    minimize: () => void window.trace.windowControls?.minimize(),
+    toggleMaximize: () => void window.trace.windowControls?.toggleMaximize(),
+    close: () => void window.trace.windowControls?.close(),
+    isMaximized: async () => (await window.trace.windowControls?.isMaximized()) ?? false,
+    onMaximizedChange: (handler: (maximized: boolean) => void) =>
+      window.trace.windowControls?.onMaximizedChange(handler) ?? (() => {}),
+  },
 };
