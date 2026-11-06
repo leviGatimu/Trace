@@ -1,0 +1,210 @@
+@import url("https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=clash-grotesk@300,400,500,600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --accent: #345ce2;
+  --accent-bright: #4b7bf5;
+  --accent-soft: #6e9bff;
+  --canvas: #ececec;
+  --panel: #ffffff;
+  --text: #15171c;
+  --text-dim: #5b6473;
+}
+
+html {
+  scroll-behavior: auto; /* Lenis handles smoothing */
+}
+
+body {
+  color: var(--text);
+  background: var(--canvas);
+  font-family: "Clash Grotesk", system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  letter-spacing: -0.011em;
+}
+
+::selection {
+  background: #345ce2;
+  color: #ffffff;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  .font-display {
+    font-family: "Clash Display", "Clash Grotesk", system-ui, sans-serif;
+  }
+
+  /*
+    Every time and every duration on this site is monospaced and tabular, the
+    same rule the application follows — columns of numbers line up, and the eye
+    can compare them without reading them.
+  */
+  .data {
+    font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  /* White panels floating on the grey canvas. */
+  .glass-container {
+    @apply bg-white border border-black/[0.06] shadow-[0_28px_60px_-30px_rgba(15,23,42,0.28)];
+  }
+
+  .glass-card {
+    @apply bg-white border border-black/[0.06] rounded-[2.5rem] p-10 shadow-[0_28px_60px_-30px_rgba(15,23,42,0.28)];
+  }
+
+  .nav-blur {
+    @apply backdrop-blur-xl bg-[#ececec]/80 border-b border-black/5 sticky top-0 z-[100];
+  }
+
+  /* Primary button — near-black, with the accent notched into one corner. */
+  .btn-primary {
+    @apply relative inline-flex items-center gap-3 overflow-hidden rounded-2xl bg-ink-900 px-10 py-5 text-lg font-semibold text-white shadow-[0_24px_50px_-16px_rgba(0,0,0,0.6)] transition-transform hover:scale-[1.02] active:scale-95;
+  }
+
+  /* White pill that always stays light — it only ever sits on dark panels. */
+  .btn-on-dark {
+    @apply bg-white text-ink-900 hover:bg-accent-50;
+  }
+
+  .rule {
+    @apply h-px w-full bg-gradient-to-r from-black/10 via-black/10 to-transparent;
+  }
+}
+
+/* Flat, uniform canvas — matches the hero exactly. */
+.bg-mesh {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-color: #ececec;
+}
+
+/* Subtle grain for texture. */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.32);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Custom cursor (arrow that follows the pointer, theme-aware)        */
+/* ------------------------------------------------------------------ */
+
+@media (hover: hover) and (pointer: fine) {
+  .has-custom-cursor,
+  .has-custom-cursor * {
+    cursor: none !important;
+  }
+}
+
+.custom-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(-100px, -100px, 0);
+  will-change: transform;
+  transition: opacity 0.25s ease;
+  /* light mode: dark arrow with a white edge */
+  --cur-fill: #0b0c0f;
+  --cur-stroke: #ffffff;
+}
+
+.dark .custom-cursor {
+  --cur-fill: #ffffff;
+  --cur-stroke: #0b0c0f;
+}
+
+.custom-cursor svg {
+  display: block;
+  fill: var(--cur-fill);
+  stroke: var(--cur-stroke);
+  filter: drop-shadow(0 4px 6px rgba(11, 12, 15, 0.35));
+  transform-origin: 0 0;
+  transform: translate(-3px, -2px) rotate(-8deg) scale(1);
+  transition: transform 0.13s ease;
+}
+
+.custom-cursor.is-hover svg {
+  transform: translate(-3px, -2px) rotate(-8deg) scale(1.45);
+}
+
+.custom-cursor.is-down svg {
+  transform: translate(-3px, -2px) rotate(-8deg) scale(0.82);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Dark mode — the application's own ground                          */
+/* ------------------------------------------------------------------ */
+
+.dark body {
+  background: #0b0c0f;
+  color: #edeff2;
+}
+
+.dark .bg-mesh {
+  background-color: #0b0c0f;
+}
+
+.dark .grain {
+  mix-blend-mode: screen;
+  opacity: 0.06;
+}
+
+.dark .nav-blur {
+  @apply bg-ink-900/80 border-white/10;
+}
+
+.dark .glass-container,
+.dark .glass-card {
+  @apply bg-white/[0.04] border-white/10;
+}
+
+.dark .rule {
+  @apply from-white/10 via-white/10;
+}
+
+.dark ::selection {
+  background: #6e9bff;
+  color: #0b0c0f;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+}

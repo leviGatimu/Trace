@@ -161,6 +161,9 @@ TraceTracker.exe --probe      # exercise the IPC contract against a running trac
 # Dashboard
 cd apps/desktop
 npm run dev
+
+# Website, at http://localhost:3000
+npm run dev:website
 ```
 
 Tests:
@@ -181,6 +184,7 @@ apps/
     Data/           schema, migrations, repositories, read models
     Ipc/            named-pipe server and request router
   desktop/        Trace.exe — Electron · React · TypeScript · Tailwind
+  website/        the marketing site — Next.js · React · Tailwind
 packages/
   contracts/      the UI ↔ tracker contract: spec, TypeScript, C# mirror
 tools/

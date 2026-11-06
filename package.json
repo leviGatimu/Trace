@@ -5,6 +5,7 @@
   "description": "Trace — your computer's activity, remembered. Private and local by design.",
   "workspaces": [
     "apps/desktop",
+    "apps/website",
     "packages/contracts"
   ],
   "engines": {
@@ -13,6 +14,8 @@
   "scripts": {
     "dev": "npm run dev --workspace=apps/desktop",
     "build": "npm run build --workspace=apps/desktop",
+    "dev:website": "npm run dev --workspace=apps/website",
+    "build:website": "npm run build --workspace=apps/website",
     "build:tracker": "dotnet publish apps/tracker/Trace.Tracker/Trace.Tracker.csproj -c Release",
     "test": "npm run test --workspace=apps/desktop",
     "test:tracker": "dotnet test apps/tracker/Trace.Tracker.Tests/Trace.Tracker.Tests.csproj",

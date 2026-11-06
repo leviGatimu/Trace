@@ -1,6 +1,10 @@
 # HANDOFF
 
 ## Current Task
+**Latest (2026-11-06):** the marketing site now lives here as `apps/website`, an
+npm workspace; its own notes are in `apps/website/HANDOFF.md`. Pushed on branch
+`website-monorepo`, **not yet merged to `main`**.
+
 Building **Trace** — a private, local-only Windows activity-history desktop app
 (Electron/React UI + separate C#/.NET background tracker + local SQLite).
 Following `DOCS/IMPLEMENTATION-PLAN.md`, which is derived from `DOCS/` and is the
@@ -49,7 +53,7 @@ launch → tray → uninstall all verified on this machine.
       from the doc: categories, rules, favourites, notes, reports.
 - [ ] Milestone 10 — polish
 
-### Uncommitted: the custom title bar (2026-08-10)
+### The custom title bar (2026-08-10)
 The dashboard window is now **frameless** and draws its own title bar.
 `apps/desktop/src/components/TitleBar.tsx` — 64px, brand mark at the left, a
 centred search field (Ctrl+K, Enter hands the query to `/search?q=`), and custom
@@ -338,6 +342,10 @@ first.** Grep for `% dayMs` and for any arithmetic on `nowUtcMs` that pretends
 to know where a day starts.
 
 ### Exact next step on resume
+0. **Website, open items:** merge `website-monorepo`; publish a GitHub release with
+   the installer, or `/Trace-Setup-0.1.0.exe` 404s anywhere but this machine (the
+   exe is gitignored in `apps/website/public/`); fix the hero cards covering the
+   headline at 1440px; replace `site.url` (`trace.app` is a placeholder).
 1. **Finish Milestone 9.** The list is in the plan §12; what is left, in order:
 
    - **Soak** (`scripts/soak.ps1`, passive, samples every 60 s to
@@ -355,6 +363,8 @@ to know where a day starts.
      database-corruption quarantine.
 
 ## Recently Completed
+- Merged the marketing site into the repo as the `apps/website` workspace
+  (2026-11-06).
 - An application's Today / Yesterday / Last 7 days now use the user's local
   midnights instead of UTC's (2026-08-10).
 - V2 Analytics — week / month / year to date, active time by day, hour-of-day
