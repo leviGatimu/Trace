@@ -35,7 +35,7 @@ stopping hard and always visible.
 - **Installed 0.3.0 on the owner's PC (2026-11-23 13:10)**, data kept.
   Backup: `Documents\Trace backup before 0.3.0 (2026-11-23)`; tracker's own
   `activity.pre-v4-20261123-111053.db`. Migration 005 applied, tamper log
-  got its "updated" entry. Versions are 0.3.0 everywhere. NOT committed,
+  got its "updated" entry. Versions are 0.3.0 everywhere. Committed and pushed on branch `trace-0.3` (2026-11-23), not merged to main,
   NOT released, website still 0.1.0.
 - Next step: owner sets a PIN on the Protection page (their choice, never
   ours), then end TraceTracker.exe and confirm it is back within a minute
