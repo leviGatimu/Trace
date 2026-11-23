@@ -4,12 +4,12 @@ import { Button } from './primitives';
 /**
  * First run.
  *
- * Framed as consent, not permission. DOCS/MVP.md §9 sketches a screen saying
+ * Framed as consent, not permission. DOCS/product/mvp.md §9 sketches a screen saying
  * "Trace needs access to basic Windows activity information", but nothing here
  * requires a Windows permission or a UAC prompt — every API the tracker uses
  * works at the user's own integrity level. Asking for permission Windows never
  * asked for would misdescribe what is happening, so this asks the user to
- * decide what Trace should record instead, which is what DOCS/Privacy.md §26
+ * decide what Trace should record instead, which is what DOCS/specs/privacy.md §26
  * specifies.
  */
 export function Onboarding({

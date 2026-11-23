@@ -78,7 +78,7 @@ internal sealed class TrayIcon : IDisposable
     /// <summary>
     /// Reflects the tracker's state in the icon and its tooltip.
     ///
-    /// DOCS/Privacy.md §11: the answer to "is this thing recording me?" must
+    /// DOCS/specs/privacy.md §11: the answer to "is this thing recording me?" must
     /// always be available without opening anything.
     /// </summary>
     public void Update(TrackingState state, bool trackingEnabled)

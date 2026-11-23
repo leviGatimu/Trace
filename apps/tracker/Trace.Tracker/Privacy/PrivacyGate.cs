@@ -11,7 +11,7 @@ namespace Trace.Tracker.Privacy;
 /// <summary>
 /// The only route from the session engine to storage.
 ///
-/// DOCS/Privacy.md §7 and §29 require that excluded activity never enters the
+/// DOCS/specs/privacy.md §7 and §29 require that excluded activity never enters the
 /// database — not that it be recorded and hidden afterwards. That is structural
 /// here: the engine holds an <see cref="IActivitySink"/> and no repository, so
 /// every write it can possibly make passes through this class first.
@@ -32,7 +32,7 @@ namespace Trace.Tracker.Privacy;
 internal sealed class PrivacyGate : IActivitySink
 {
     /// <summary>
-    /// Trace never appears in its own history (DOCS/Tracking.md §Q). Built in,
+    /// Trace never appears in its own history (DOCS/specs/tracking.md §Q). Built in,
     /// not a default the user could remove: an activity recorder padding its own
     /// usage figures would be absurd.
     /// </summary>
@@ -86,7 +86,8 @@ internal sealed class PrivacyGate : IActivitySink
             // Deliberately inside the refusal check above: an excluded
             // application does not even acquire a row in `applications`.
             var applicationId = ApplicationRepository.Upsert(connection, application, startedAtUtcMs);
-            var sessionId = SessionRepository.Open(connection, applicationId, startedAtUtcMs);
+            var sessionId = SessionRepository.Open(
+                connection, applicationId, startedAtUtcMs, application.ProcessId);
 
             return new OpenedSession(sessionId, applicationId);
         });

@@ -4,7 +4,7 @@ namespace Trace.Tracker;
 /// Every filesystem location Trace uses, resolved once.
 ///
 /// All of it lives under the current Windows user's LocalAppData, which is what
-/// makes the per-user isolation in DOCS/Windows Integration &amp; Application
+/// makes the per-user isolation in DOCS/specs/windows-integration.md &amp; Application
 /// Lifecycle.md §26 structural rather than a convention: two Windows accounts
 /// resolve to two different roots and can never see each other's history.
 ///
@@ -13,8 +13,8 @@ namespace Trace.Tracker;
 /// </summary>
 public static class TracePaths
 {
-    /// <summary>%LOCALAPPDATA%\Trace</summary>
-    public static string Root { get; } = Path.Combine(
+    /// <summary>%LOCALAPPDATA%\Trace, or the <see cref="TraceSandbox"/> folder.</summary>
+    public static string Root { get; } = TraceSandbox.Folder ?? Path.Combine(
         Environment.GetFolderPath(
             Environment.SpecialFolder.LocalApplicationData,
             Environment.SpecialFolderOption.DoNotVerify),
@@ -37,6 +37,12 @@ public static class TracePaths
     /// the previous run was interrupted — see <see cref="Data.RunMarker"/>.
     /// </summary>
     public static string RunMarkerFile { get; } = Path.Combine(Root, "tracker.running");
+
+    /// <summary>Written by the installer before it stops Trace to update it.</summary>
+    public static string UpdateMarkerFile { get; } = Path.Combine(Root, "updating");
+
+    /// <summary>Written when Trace is quit with the PIN, so the next start knows auto-restart was paused on purpose.</summary>
+    public static string QuitMarkerFile { get; } = Path.Combine(Root, "quit-with-pin");
 
     /// <summary>
     /// Creates the directory tree if absent. Called once at startup, before

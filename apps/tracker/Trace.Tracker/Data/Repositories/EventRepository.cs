@@ -5,7 +5,7 @@ namespace Trace.Tracker.Data.Repositories;
 
 /// <summary>
 /// The audit layer. Events are the source of truth; sessions are the derived
-/// interpretation (DOCS/data and database.md §1), so a future correction to the
+/// interpretation (DOCS/specs/data-and-database.md §1), so a future correction to the
 /// session logic can be replayed against the original history.
 /// </summary>
 internal static class EventRepository

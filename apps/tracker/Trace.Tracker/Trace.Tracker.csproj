@@ -36,7 +36,7 @@
     <Product>Trace</Product>
     <AssemblyTitle>Trace Tracker</AssemblyTitle>
     <Company>Trace</Company>
-    <Version>0.1.0</Version>
+    <Version>0.3.0</Version>
 
     <!-- Windows-only by design; suppress the cross-platform analyser noise. -->
     <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
@@ -70,6 +70,9 @@
   <ItemGroup>
     <!-- Migrations ship inside the binary so they can never desync from code. -->
     <EmbeddedResource Include="Data\Migrations\*.sql" />
+
+    <!-- The application registry: curated names and categories (Identity/). -->
+    <EmbeddedResource Include="Identity\registry.json" LogicalName="Trace.Tracker.Identity.registry.json" />
 
     <!--
       Tray icons embedded rather than shipped alongside: the tracker must be

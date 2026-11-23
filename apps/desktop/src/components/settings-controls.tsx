@@ -95,7 +95,7 @@ export function Select<T extends string>({
 /**
  * A destructive action, behind its consequences.
  *
- * Deleting history cannot be undone — DOCS/data and database.md §20 rules out
+ * Deleting history cannot be undone — DOCS/specs/data-and-database.md §20 rules out
  * building a recovery system — so the confirmation states plainly what goes,
  * and the worst of them asks for the words to be typed.
  */

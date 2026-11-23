@@ -193,7 +193,7 @@ export function localUsagePeriods(now: Date = new Date()): UsagePeriods {
 
 /**
  * Window titles are recorded exactly as Windows reported them
- * (DOCS/Tracking.md, closing note), so tidying happens here at the last
+ * (DOCS/specs/tracking.md, closing note), so tidying happens here at the last
  * possible moment and never in storage.
  */
 export function tidyWindowTitle(title: string | null, applicationName: string): string | null {
@@ -204,9 +204,16 @@ export function tidyWindowTitle(title: string | null, applicationName: string): 
   // "GitHub - Google Chrome" → "GitHub". Only the application's own suffix is
   // removed, so a title that merely contains a dash is left intact.
   const suffix = ` - ${applicationName}`;
-  const trimmed = title.endsWith(suffix) ? title.slice(0, -suffix.length) : title;
+  const trimmed = (title.endsWith(suffix) ? title.slice(0, -suffix.length) : title).trim();
 
-  return trimmed.trim() || null;
+  // A window titled with nothing but its application's name ("WhatsApp" in
+  // WhatsApp) says nothing the row does not already say, and printed beside the
+  // name it reads as a second, duplicate entry.
+  if (trimmed.toLocaleLowerCase() === applicationName.trim().toLocaleLowerCase()) {
+    return null;
+  }
+
+  return trimmed || null;
 }
 
 function pad(value: number): string {

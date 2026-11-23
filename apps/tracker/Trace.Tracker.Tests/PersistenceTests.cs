@@ -18,7 +18,7 @@ public class PersistenceTests
         using var trace = new PersistenceHarness();
 
         var version = trace.Query("SELECT MAX(version) FROM schema_version;", r => r.GetInt32(0));
-        Assert.Equal([1], version);
+        Assert.Equal([TraceDatabase.CurrentSchemaVersion], version);
 
         var tables = trace.Query(
             "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name;",
@@ -77,7 +77,7 @@ public class PersistenceTests
     [Fact]
     public void An_excluded_application_reaches_no_table_and_no_column()
     {
-        // DOCS/Privacy.md §7 and §29. The strongest form of the assertion: not
+        // DOCS/specs/privacy.md §7 and §29. The strongest form of the assertion: not
         // "no session", but no trace of the name anywhere in the database.
         using var trace = new PersistenceHarness();
         trace.Settings.Update(s => s with { ExcludedExecutables = ["1password.exe"] });
@@ -101,7 +101,7 @@ public class PersistenceTests
     [Fact]
     public void Trace_never_records_itself()
     {
-        // DOCS/Tracking.md §Q — built in, and not something the user can undo by
+        // DOCS/specs/tracking.md §Q — built in, and not something the user can undo by
         // clearing the exclusion list.
         using var trace = new PersistenceHarness();
         trace.Settings.Update(s => s with { ExcludedExecutables = [] });
@@ -183,7 +183,7 @@ public class PersistenceTests
     [Fact]
     public void One_application_keeps_one_identity_across_many_sessions()
     {
-        // DOCS/data and database.md §3-4.
+        // DOCS/specs/data-and-database.md §3-4.
         using var trace = new PersistenceHarness();
 
         trace.NewEngine().Start()
@@ -203,7 +203,7 @@ public class PersistenceTests
     [Fact]
     public void An_interrupted_session_is_closed_at_the_last_heartbeat()
     {
-        // DOCS/data and database.md §7 and §28: close at the last moment Trace
+        // DOCS/specs/data-and-database.md §7 and §28: close at the last moment Trace
         // can vouch for, never at "now", and never at a guess in between.
         using var trace = new PersistenceHarness();
 
@@ -445,7 +445,7 @@ public class PersistenceTests
     public void An_unreadable_settings_file_falls_back_to_paused()
     {
         // Silently resuming tracking for someone who had paused it would be the
-        // worst possible failure mode for trust (DOCS/Privacy.md §27).
+        // worst possible failure mode for trust (DOCS/specs/privacy.md §27).
         using var trace = new PersistenceHarness();
         File.WriteAllText(trace.SettingsPath, "{ this is not json");
 
@@ -470,7 +470,7 @@ public class PersistenceTests
     [Fact]
     public void The_MVP_success_test_lands_correctly_in_the_database()
     {
-        // DOCS/MVP.md §10, this time asserted by querying SQLite rather than a
+        // DOCS/product/mvp.md §10, this time asserted by querying SQLite rather than a
         // fake: the same day the product documentation says must work.
         using var trace = new PersistenceHarness();
 

@@ -1,14 +1,12 @@
 import type { ReactNode } from 'react';
+import { useAppIcon, useConnection } from '@/hooks/useTracker';
 
 /**
- * The shared pieces.
+ * The shared pieces of Trace 2.0.
  *
- * Notice what is missing: there is no card, panel or box. Sections are
- * separated by vertical space and a small label, lists by alignment and hover
- * alone. Enclosing every group in a bordered rectangle is what made the
- * earlier attempts look amateur — it gives a paragraph the same visual weight
- * as the day's headline figure and fills the screen with lines that mean
- * nothing.
+ * Regions that hold data (a table, the inspector, a chart) sit in a bordered
+ * panel, because on an investigation screen it matters where one body of
+ * evidence ends and the next begins. Prose and headings never get a box.
  */
 
 export function PageHeader({
@@ -21,22 +19,50 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header className="mb-9 flex items-baseline justify-between gap-6">
-      <div className="flex min-w-0 items-baseline gap-3">
-        <h1 className="truncate text-[18px] font-semibold tracking-[-0.01em] text-ink">{title}</h1>
-        {meta && <span className="truncate text-ink-3">{meta}</span>}
+    <header className="mb-6 flex items-end justify-between gap-6">
+      <div className="min-w-0">
+        <h1 className="truncate text-[22px] font-semibold tracking-[-0.015em] text-ink">{title}</h1>
+        {meta && <p className="mt-0.5 truncate text-ink-3">{meta}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-1">{actions}</div>}
+      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </header>
   );
 }
 
-/**
- * A labelled band of content.
- *
- * The label is the only structure: no rule beneath it, no container around the
- * children. Space does the separating.
- */
+/** A bordered region of evidence, with an optional header line. */
+export function Panel({
+  title,
+  detail,
+  actions,
+  children,
+  className = '',
+  flush = false,
+}: {
+  title?: string;
+  detail?: ReactNode;
+  actions?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  /** No inner padding: for tables whose rows run edge to edge. */
+  flush?: boolean;
+}) {
+  return (
+    <section className={`rounded-md border border-hair bg-canvas ${className}`.trim()}>
+      {(title || actions) && (
+        <div className="flex items-center justify-between gap-4 border-b border-hair px-4 py-2.5">
+          <div className="flex min-w-0 items-baseline gap-3">
+            {title && <h2 className="font-semibold text-ink">{title}</h2>}
+            {detail && <span className="truncate text-ink-4">{detail}</span>}
+          </div>
+          {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+        </div>
+      )}
+      <div className={flush ? '' : 'p-4'}>{children}</div>
+    </section>
+  );
+}
+
+/** A labelled band of content without a box, for settings and prose. */
 export function Section({
   label,
   children,
@@ -49,8 +75,8 @@ export function Section({
   className?: string;
 }) {
   return (
-    <section className={`mb-9 ${className}`.trim()}>
-      <div className="mb-3 flex items-center justify-between gap-4">
+    <section className={`mb-8 ${className}`.trim()}>
+      <div className="mb-2.5 flex items-center justify-between gap-4 border-b border-hair pb-2">
         <h2 className="eyebrow">{label}</h2>
         {actions}
       </div>
@@ -59,38 +85,26 @@ export function Section({
   );
 }
 
-/**
- * The day's headline figure, with its subordinate facts on the same line.
- *
- * One large number, not four boxed ones. The others are context for it and are
- * set as running text, which is what they are.
- */
+/** One headline figure with the facts that qualify it. */
 export function Headline({ value, unit, facts }: { value: string; unit: string; facts: string[] }) {
   return (
-    <div className="mb-7">
-      <div className="flex items-baseline gap-2.5">
-        <span className="display text-[46px] leading-none text-ink">{value}</span>
-        <span className="text-[13px] text-ink-3">{unit}</span>
+    <div className="mb-6">
+      <div className="flex items-baseline gap-2">
+        <span className="display text-[38px] leading-none text-ink">{value}</span>
+        <span className="text-ink-3">{unit}</span>
       </div>
-      <p className="mt-2.5 text-ink-2">
-        {facts.map((fact, index) => (
-          <span key={fact}>
-            {index > 0 && <span className="mx-2 text-ink-4">·</span>}
-            {fact}
-          </span>
-        ))}
-      </p>
+      {facts.length > 0 && (
+        <p className="mt-2 flex flex-wrap gap-x-4 text-ink-3">
+          {facts.map((fact) => (
+            <span key={fact}>{fact}</span>
+          ))}
+        </p>
+      )}
     </div>
   );
 }
 
-/**
- * A list row.
- *
- * No border and no radius at rest; a tint on hover, and negative horizontal
- * margin so the tint bleeds past the text into the gutter rather than drawing
- * a button around it.
- */
+/** A plain list row with a hover tint. */
 export function Row({
   children,
   onClick,
@@ -101,8 +115,8 @@ export function Row({
   selected?: boolean;
 }) {
   const shared = [
-    '-mx-2 block w-[calc(100%+1rem)] rounded-sm px-2 py-[11px] text-left',
-    selected ? 'bg-lift' : '',
+    'block w-full border-b border-hair px-4 py-2.5 text-left last:border-b-0',
+    selected ? 'bg-select' : '',
   ].join(' ');
 
   if (!onClick) {
@@ -110,22 +124,18 @@ export function Row({
   }
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`${shared} transition-colors duration-150 hover:bg-lift`}
-    >
+    <button type="button" onClick={onClick} className={`${shared} transition-colors duration-100 hover:bg-lift`}>
       {children}
     </button>
   );
 }
 
-/** A proportion, drawn as a thin rule. Reads as a measurement, not a chart. */
+/** A proportion, drawn as a short bar in a sunken track. */
 export function Meter({ fraction, color }: { fraction: number; color?: string }) {
   return (
-    <span className="block h-[2px] w-full overflow-hidden bg-white/6" aria-hidden>
+    <span className="block h-[4px] w-full overflow-hidden rounded-full bg-sunken" aria-hidden>
       <span
-        className="block h-full transition-[width] duration-500 ease-out"
+        className="block h-full rounded-full"
         style={{
           width: `${Math.max(0, Math.min(1, fraction)) * 100}%`,
           background: color ?? 'var(--color-accent)',
@@ -135,32 +145,27 @@ export function Meter({ fraction, color }: { fraction: number; color?: string })
   );
 }
 
-/**
- * A figure with its label above it.
- *
- * Comparable numbers set as a row of columns, so the eye can scan across them.
- * They were previously run together into a sentence, which reads fine for one
- * fact and badly for four you are meant to compare.
- */
-export function Figure({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
+/** A figure with its label above it, for a row of comparable numbers. */
+export function Figure({
+  label,
+  value,
+  muted = false,
+  note,
+}: {
+  label: string;
+  value: string;
+  muted?: boolean;
+  note?: string;
+}) {
   return (
     <div className="min-w-0">
-      <div className="eyebrow mb-1.5">{label}</div>
-      <div
-        className={`display text-[24px] leading-none ${muted ? 'text-ink-3' : 'text-ink'}`}
-      >
-        {value}
-      </div>
+      <div className="text-ink-3">{label}</div>
+      <div className={`display mt-1 text-[22px] leading-none ${muted ? 'text-ink-2' : 'text-ink'}`}>{value}</div>
+      {note && <div className="mt-1.5 text-[12.5px] text-ink-4">{note}</div>}
     </div>
   );
 }
 
-/**
- * Tabs, as an underline.
- *
- * Used where a page has two equally important bodies of content and stacking
- * them would make the second invisible below the fold.
- */
 export function Tabs<T extends string>({
   value,
   options,
@@ -171,7 +176,7 @@ export function Tabs<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div role="tablist" className="mb-6 flex gap-6 border-b border-hair">
+    <div role="tablist" className="mb-4 flex gap-1 border-b border-hair">
       {options.map((option) => {
         const active = option.value === value;
 
@@ -183,16 +188,12 @@ export function Tabs<T extends string>({
             aria-selected={active}
             onClick={() => onChange(option.value)}
             className={[
-              '-mb-px border-b-2 pb-2.5 transition-colors duration-150',
-              active
-                ? 'border-accent text-ink'
-                : 'border-transparent text-ink-3 hover:text-ink',
+              '-mb-px border-b-2 px-3 pb-2 pt-1 transition-colors duration-100',
+              active ? 'border-accent text-ink' : 'border-transparent text-ink-3 hover:text-ink',
             ].join(' ')}
           >
             {option.label}
-            {option.count !== undefined && (
-              <span className="data ml-2 text-ink-4">{option.count}</span>
-            )}
+            {option.count !== undefined && <span className="data ml-1.5 text-ink-4">{option.count}</span>}
           </button>
         );
       })}
@@ -200,14 +201,83 @@ export function Tabs<T extends string>({
   );
 }
 
-/** A dot in an application's own colour, tying a row to its band in the ribbon. */
+/** A small dot in an application's colour. */
 export function AppSwatch({ color }: { color: string }) {
+  return <span className="inline-block h-[7px] w-[7px] shrink-0 rounded-[2px]" style={{ background: color }} aria-hidden />;
+}
+
+/**
+ * An application's mark: its initials on a tile of its colour. Stands in for
+ * the real icon until icons are extracted from executables, and remains the
+ * fallback for anything Trace cannot get an icon for.
+ */
+export function AppMark({
+  name,
+  color,
+  size = 22,
+  applicationId,
+}: {
+  name: string;
+  color: string;
+  size?: number;
+  /** When given, the application's real icon is shown, with the initials as the fallback. */
+  applicationId?: number;
+}) {
+  const connected = useConnection().status === 'connected';
+  const icon = useAppIcon(applicationId, connected);
+  if (icon.data?.dataUrl) {
+    return (
+      <span
+        className="inline-flex shrink-0 items-center justify-center rounded-[10px] bg-white/[0.06]"
+        style={{ width: size, height: size }}
+        aria-hidden
+      >
+        <img src={icon.data.dataUrl} alt="" draggable={false} style={{ width: size * 0.72, height: size * 0.72 }} />
+      </span>
+    );
+  }
+
+  const initials = name
+    .replace(/[^\p{L}\p{N} ]/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]!.toUpperCase())
+    .join('') || '?';
+
   return (
     <span
-      className="inline-block h-[6px] w-[6px] shrink-0 rounded-full"
-      style={{ background: color }}
+      className="inline-flex shrink-0 items-center justify-center rounded-[10px] font-semibold"
+      style={{
+        width: size,
+        height: size,
+        fontSize: Math.round(size * 0.42),
+        color,
+        background: `color-mix(in srgb, ${color} 16%, transparent)`,
+        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 30%, transparent)`,
+      }}
       aria-hidden
-    />
+    >
+      {initials}
+    </span>
+  );
+}
+
+/** A label and its value, for detail panes. */
+export function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-3 py-1.5">
+      <dt className="text-ink-4">{label}</dt>
+      <dd className="min-w-0 break-words text-ink-2">{children}</dd>
+    </div>
+  );
+}
+
+export function Kbd({ children }: { children: ReactNode }) {
+  return (
+    <kbd className="data inline-flex min-w-[18px] items-center justify-center rounded-[3px] border border-hair-strong px-1 text-[11px] leading-[16px] text-ink-3">
+      {children}
+    </kbd>
   );
 }
 
@@ -221,9 +291,9 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="py-14">
-      <p className="text-ink-2">{title}</p>
-      {detail && <p className="mt-1.5 max-w-md leading-relaxed text-ink-4">{detail}</p>}
+    <div className="px-4 py-12 text-center">
+      <p className="font-medium text-ink-2">{title}</p>
+      {detail && <p className="mx-auto mt-1.5 max-w-md leading-relaxed text-ink-4">{detail}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
@@ -231,12 +301,12 @@ export function EmptyState({
 
 export function Skeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="space-y-2.5" aria-busy="true" aria-label="Loading">
+    <div className="space-y-2 p-4" aria-busy="true" aria-label="Loading">
       {Array.from({ length: rows }, (_, index) => (
         <div
           key={index}
-          className="h-3 animate-pulse rounded-sm bg-white/5"
-          style={{ width: `${92 - index * 11}%`, animationDelay: `${index * 70}ms` }}
+          className="h-7 animate-pulse rounded-sm bg-white/[0.04]"
+          style={{ animationDelay: `${index * 60}ms` }}
         />
       ))}
     </div>
@@ -245,14 +315,10 @@ export function Skeleton({ rows = 5 }: { rows?: number }) {
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div className="py-8">
-      <p className="text-ink-2">{message}</p>
+    <div className="px-4 py-8" role="alert">
+      <p className="text-danger">{message}</p>
       {onRetry && (
-        <button
-          type="button"
-          className="mt-2.5 text-accent transition-opacity hover:opacity-70"
-          onClick={onRetry}
-        >
+        <button type="button" className="mt-2 text-accent hover:underline" onClick={onRetry}>
           Try again
         </button>
       )}
@@ -265,17 +331,19 @@ export function Button({
   onClick,
   variant = 'default',
   title,
+  disabled = false,
 }: {
   children: ReactNode;
   onClick?: () => void;
   variant?: 'default' | 'ghost' | 'accent' | 'danger';
   title?: string;
+  disabled?: boolean;
 }) {
   const styles = {
-    default: 'bg-lift text-ink hover:bg-white/10',
+    default: 'border border-hair-strong bg-lift text-ink hover:bg-select',
     ghost: 'text-ink-3 hover:bg-lift hover:text-ink',
-    accent: 'bg-accent/15 text-accent hover:bg-accent/25',
-    danger: 'bg-danger/12 text-danger hover:bg-danger/20',
+    accent: 'bg-accent text-[#10141a] font-medium hover:brightness-110',
+    danger: 'border border-danger/40 text-danger hover:bg-danger/12',
   }[variant];
 
   return (
@@ -283,20 +351,15 @@ export function Button({
       type="button"
       title={title}
       onClick={onClick}
-      className={`rounded-md px-2.5 py-[5px] transition-colors duration-150 ${styles}`}
+      disabled={disabled}
+      className={`inline-flex items-center gap-1.5 rounded-md px-3 py-[5px] transition-colors duration-100 disabled:opacity-40 ${styles}`}
     >
       {children}
     </button>
   );
 }
 
-/**
- * The tracking indicator.
- *
- * Always paired with a word. DOCS/Privacy.md §11 wants the answer to "is this
- * recording me?" to be unmissable, and a coloured dot alone is missable — and
- * invisible to anyone who cannot separate these hues.
- */
+/** The tracking indicator. Always paired with a word, never colour alone. */
 export function StatusDot({ state }: { state: 'live' | 'paused' | 'idle' | 'off' }) {
   const colour = {
     live: 'text-positive',
@@ -306,7 +369,7 @@ export function StatusDot({ state }: { state: 'live' | 'paused' | 'idle' | 'off'
   }[state];
 
   return (
-    <span className={`relative inline-flex h-[6px] w-[6px] shrink-0 ${colour}`}>
+    <span className={`relative inline-flex h-[7px] w-[7px] shrink-0 ${colour}`}>
       <span className="absolute inset-0 rounded-full bg-current" />
       {state === 'live' && <span className="pulse absolute inset-0" />}
     </span>

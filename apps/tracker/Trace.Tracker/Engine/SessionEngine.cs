@@ -7,7 +7,7 @@ namespace Trace.Tracker.Engine;
 ///
 /// This is a pure state machine. It touches no Win32 API and no database — it
 /// reads the screen through <see cref="IWindowResolver"/> and writes through
-/// <see cref="IActivitySink"/>. Every rule in the DOCS/Tracking.md §"MVP rules"
+/// <see cref="IActivitySink"/>. Every rule in the DOCS/specs/tracking.md §"MVP rules"
 /// table is implemented here and has a matching test, which is only possible
 /// because the class can be driven by a scripted list of signals.
 ///
@@ -19,7 +19,7 @@ internal sealed class SessionEngine
     /// <summary>
     /// A window shown for less than this is not recorded.
     ///
-    /// Unlike application sessions — where DOCS/Tracking.md §F keeps the raw
+    /// Unlike application sessions — where DOCS/specs/tracking.md §F keeps the raw
     /// transitions and cleans up at display time — window titles change for
     /// reasons that have nothing to do with the user. Running the real tracker
     /// against a terminal whose title carries a progress spinner produced nine
@@ -114,7 +114,7 @@ internal sealed class SessionEngine
     /// Begins tracking.
     ///
     /// <paramref name="startPaused"/> carries the persisted pause state forward
-    /// across a reboot. DOCS/Privacy.md §27: a user who paused tracking and
+    /// across a reboot. DOCS/specs/privacy.md §27: a user who paused tracking and
     /// restarted Windows must find it still paused, or the product has lied to
     /// them.
     /// </summary>
@@ -232,7 +232,7 @@ internal sealed class SessionEngine
 
         // Unidentifiable (a protected or already-exited process), or filtered.
         // Either way nothing may be recorded about it — not even that it was
-        // seen (DOCS/Privacy.md §29). The previous session simply ends, leaving
+        // seen (DOCS/specs/privacy.md §29). The previous session simply ends, leaving
         // an honest gap rather than a guess.
         if (application is null || _sink.IsApplicationExcluded(application.Executable))
         {
@@ -244,9 +244,9 @@ internal sealed class SessionEngine
         _state.CurrentWindow = hwnd;
 
         // Same application: one continuous application session, even across
-        // different windows of that application (DOCS/Tracking.md §D and §O).
+        // different windows of that application (DOCS/specs/tracking.md §D and §O).
         // This is also what absorbs the duplicate foreground events Windows
-        // routinely emits (DOCS/data and database.md §12).
+        // routinely emits (DOCS/specs/data-and-database.md §12).
         if (_state.HasOpenSession
             && _state.CurrentApplication is { } current
             && string.Equals(current.Executable, application.Executable, StringComparison.Ordinal))
@@ -296,7 +296,7 @@ internal sealed class SessionEngine
             return;
         }
 
-        // DOCS/Tracking.md §P — a more precise ending than a generic switch.
+        // DOCS/specs/tracking.md §P — a more precise ending than a generic switch.
         CloseCurrentSession(atUtcMs, EndReason.APP_EXIT);
     }
 
@@ -325,7 +325,7 @@ internal sealed class SessionEngine
         }
 
         // Titles disabled: nothing is held and nothing will be written. The
-        // application session history is unaffected (DOCS/Privacy.md §28).
+        // application session history is unaffected (DOCS/specs/privacy.md §28).
         if (!_sink.RecordWindowTitles)
         {
             _state.ClearWindow();
@@ -438,7 +438,7 @@ internal sealed class SessionEngine
 
     /// <summary>
     /// Unlock, wake and resume all re-read what is in front rather than assuming
-    /// the application from before is still there (DOCS/Tracking.md §I, §J).
+    /// the application from before is still there (DOCS/specs/tracking.md §I, §J).
     /// </summary>
     private void ResumeCollecting(long atUtcMs, EventType eventType)
     {
@@ -464,7 +464,7 @@ internal sealed class SessionEngine
     /// <summary>
     /// Settings take effect immediately, not at the next application switch. A
     /// user who excludes the application they are looking at expects recording
-    /// to stop now (DOCS/Privacy.md §6).
+    /// to stop now (DOCS/specs/privacy.md §6).
     /// </summary>
     private void OnSettingsChanged(long atUtcMs)
     {

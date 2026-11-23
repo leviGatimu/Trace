@@ -1,6 +1,6 @@
 -- Trace schema v1.
 --
--- Conventions (DOCS/data and database.md §24):
+-- Conventions (DOCS/specs/data-and-database.md §24):
 --   *_at, *_seen, timestamp, last_heartbeat  -> UTC epoch MILLISECONDS
 --   *_seconds                                -> whole SECONDS
 --
@@ -50,7 +50,7 @@ CREATE INDEX ix_sessions_open           ON sessions(id) WHERE ended_at IS NULL;
 -- Window sessions ---------------------------------------------------------
 -- No rows are written at all when window-title recording is disabled: with
 -- titles off this table has no purpose, and Trace does not collect what it
--- does not need (DOCS/Privacy.md §28 and the principle at §33).
+-- does not need (DOCS/specs/privacy.md §28 and the principle at §33).
 
 CREATE TABLE window_sessions (
     id               INTEGER PRIMARY KEY,

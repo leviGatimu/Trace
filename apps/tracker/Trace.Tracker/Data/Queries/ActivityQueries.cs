@@ -13,7 +13,7 @@ namespace Trace.Tracker.Data.Queries;
 /// so no two screens can disagree about how many times you used something.
 ///
 /// <b>Results are final.</b> The UI formats <c>8020</c> as <c>2h 14m</c> and
-/// derives nothing else (DOCS/data and database.md §26). Every total, count and
+/// derives nothing else (DOCS/specs/data-and-database.md §26). Every total, count and
 /// bucket is computed here.
 /// </summary>
 internal sealed class ActivityQueries
@@ -194,7 +194,7 @@ internal sealed class ActivityQueries
 
     /// <summary>
     /// Everything the analytics page states, computed here so the page only
-    /// formats it (DOCS/data and database.md §26). That includes the averages
+    /// formats it (DOCS/specs/data-and-database.md §26). That includes the averages
     /// and the busiest day: a figure the UI worked out itself is a second place
     /// the product can be wrong about how long you used something.
     ///
@@ -360,7 +360,7 @@ internal sealed class ActivityQueries
     /// Locked, asleep and paused stretches, reconstructed from the event log.
     ///
     /// These are not sessions and are not stored as any — they are the gaps
-    /// between them, and DOCS/data and database.md §9 is exactly why the event
+    /// between them, and DOCS/specs/data-and-database.md §9 is exactly why the event
     /// log exists. An interval whose closing event is missing (the machine never
     /// came back) is returned open rather than guessed shut.
     /// </summary>
@@ -444,6 +444,60 @@ internal sealed class ActivityQueries
 
     // -- applications -------------------------------------------------------
 
+    /// <summary>Where a profile's icon can be read from: each executable, most recently seen first.</summary>
+    public List<(string Executable, string? Path, string? PackageFamily)> IconSources(long profileId) =>
+        _database.Read(connection =>
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText =
+                """
+                SELECT executable, path, package_family FROM applications
+                 WHERE profile_id = $id ORDER BY (path IS NULL), last_seen DESC;
+                """;
+            command.Parameters.AddWithValue("$id", profileId);
+            var sources = new List<(string, string?, string?)>();
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                sources.Add((reader.GetString(0), reader.IsDBNull(1) ? null : reader.GetString(1),
+                    reader.IsDBNull(2) ? null : reader.GetString(2)));
+            }
+
+            return sources;
+        });
+
+    /// <summary>Every recorded program file and the application profile it belongs to.</summary>
+    public IReadOnlyDictionary<string, (long Id, string Name)> ProfilesByExecutable() =>
+        _database.Read(connection =>
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText =
+                "SELECT a.executable, p.id, p.name FROM applications a JOIN profiles p ON p.id = a.profile_id;";
+            var map = new Dictionary<string, (long, string)>(StringComparer.Ordinal);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                map[reader.GetString(0)] = (reader.GetInt64(1), reader.GetString(2));
+            }
+
+            return (IReadOnlyDictionary<string, (long, string)>)map;
+        });
+
+    /// <summary>The profile an executable row belongs to, or null if the row is gone.</summary>
+    public (long Id, string Name)? FindProfile(long executableId) =>
+        _database.Read<(long, string)?>(connection =>
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText =
+                """
+                SELECT p.id, p.name FROM applications a JOIN profiles p ON p.id = a.profile_id
+                 WHERE a.id = $id;
+                """;
+            command.Parameters.AddWithValue("$id", executableId);
+            using var reader = command.ExecuteReader();
+            return reader.Read() ? (reader.GetInt64(0), reader.GetString(1)) : null;
+        });
+
     public List<ApplicationSummary> ListApplications(
         DayRange range, int minSessionSeconds, long nowUtcMs)
     {
@@ -489,8 +543,7 @@ internal sealed class ActivityQueries
         _database.Read<ApplicationDetail?>(connection =>
         {
             using var lookup = connection.CreateCommand();
-            lookup.CommandText =
-                "SELECT name, executable, path, first_seen, last_seen FROM applications WHERE id = $id;";
+            lookup.CommandText = "SELECT name, category FROM profiles WHERE id = $id;";
             lookup.Parameters.AddWithValue("$id", applicationId);
 
             using var reader = lookup.ExecuteReader();
@@ -500,11 +553,22 @@ internal sealed class ActivityQueries
             }
 
             var name = reader.GetString(0);
-            var executable = reader.GetString(1);
-            var path = reader.IsDBNull(2) ? null : reader.GetString(2);
-            var firstSeen = reader.GetInt64(3);
-            var lastSeen = reader.GetInt64(4);
+            var category = reader.IsDBNull(1) ? null : reader.GetString(1);
             reader.Close();
+
+            var aliases = ReadAliases(connection, applicationId);
+            if (aliases.Count == 0)
+            {
+                return null;
+            }
+
+            // The executable and path shown up front are the most recently seen;
+            // every executable in the profile is listed in Aliases.
+            var latest = aliases.MaxBy(a => a.LastSeen)!;
+            var executable = latest.Executable;
+            var path = latest.Path;
+            var firstSeen = aliases.Min(a => a.FirstSeen);
+            var lastSeen = latest.LastSeen;
 
             var merged = SessionMerger.Merge(
                 ReadSessionsOverlapping(
@@ -527,8 +591,48 @@ internal sealed class ActivityQueries
                 lastSeen,
                 ReadUsage(connection, applicationId, periods, minSessionSeconds),
                 sessions,
-                ReadWindowRollup(connection, merged.SelectMany(s => s.RawSessionIds).ToList()));
+                ReadWindowRollup(connection, merged.SelectMany(s => s.RawSessionIds).ToList()),
+                category,
+                aliases);
         });
+
+    /// <summary>
+    /// Every executable recorded under a profile, with how it was linked. These
+    /// are the observed identities behind the one application the owner sees.
+    /// </summary>
+    private static List<ApplicationAlias> ReadAliases(SqliteConnection connection, long profileId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT a.id, a.executable, a.name, a.path, a.package_family, a.identity_source,
+                   COALESCE(a.profile_link, 'self'), a.first_seen, a.last_seen,
+                   (SELECT COUNT(*) FROM sessions s WHERE s.application_id = a.id)
+              FROM applications a
+             WHERE a.profile_id = $id
+             ORDER BY a.last_seen DESC;
+            """;
+        command.Parameters.AddWithValue("$id", profileId);
+
+        var aliases = new List<ApplicationAlias>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            aliases.Add(new ApplicationAlias(
+                reader.GetInt64(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3),
+                reader.IsDBNull(4) ? null : reader.GetString(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5),
+                reader.GetString(6),
+                reader.GetInt64(7),
+                reader.GetInt64(8),
+                reader.GetInt32(9)));
+        }
+
+        return aliases;
+    }
 
     /// <summary>
     /// Usage across fixed periods.
@@ -558,7 +662,7 @@ internal sealed class ActivityQueries
                 COALESCE(SUM(CASE WHEN started_at >= $weekStart THEN active_seconds END), 0),
                 COALESCE(SUM(active_seconds), 0)
               FROM sessions
-             WHERE application_id = $id
+             WHERE application_id IN (SELECT id FROM applications WHERE profile_id = $id)
                AND (ended_at IS NULL OR (ended_at - started_at) >= $minimumMs);
             """;
 
@@ -583,9 +687,10 @@ internal sealed class ActivityQueries
             using var command = connection.CreateCommand();
             command.CommandText =
                 """
-                SELECT s.id, s.application_id, a.name, a.executable, s.started_at, s.ended_at,
-                       s.active_seconds, s.idle_seconds, s.end_reason
+                SELECT s.id, p.id, p.name, a.executable, s.started_at, s.ended_at,
+                       s.active_seconds, s.idle_seconds, s.end_reason, s.process_id, a.path
                   FROM sessions s JOIN applications a ON a.id = s.application_id
+                                  JOIN profiles p ON p.id = a.profile_id
                  WHERE s.id = $id;
                 """;
             command.Parameters.AddWithValue("$id", sessionId);
@@ -607,7 +712,9 @@ internal sealed class ActivityQueries
                 reader.GetInt32(7),
                 ParseEndReason(reader.IsDBNull(8) ? null : reader.GetString(8)),
                 [],
-                []);
+                [],
+                reader.IsDBNull(9) ? null : reader.GetInt64(9),
+                reader.IsDBNull(10) ? null : reader.GetString(10));
             reader.Close();
 
             return detail with
@@ -629,12 +736,13 @@ internal sealed class ActivityQueries
         using var command = connection.CreateCommand();
         command.CommandText =
             $"""
-             SELECT s.id, s.application_id, a.name, a.executable, s.started_at, s.ended_at,
+             SELECT s.id, p.id, p.name, a.executable, s.started_at, s.ended_at,
                     s.active_seconds, s.idle_seconds, s.end_reason
                FROM sessions s JOIN applications a ON a.id = s.application_id
+                               JOIN profiles p ON p.id = a.profile_id
               WHERE s.started_at < $to
                 AND (s.ended_at IS NULL OR s.ended_at > $from)
-                {(applicationId is null ? string.Empty : "AND s.application_id = $applicationId")}
+                {(applicationId is null ? string.Empty : "AND a.profile_id = $applicationId")}
               ORDER BY s.started_at, s.id;
              """;
 

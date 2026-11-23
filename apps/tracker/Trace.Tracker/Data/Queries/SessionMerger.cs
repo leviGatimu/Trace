@@ -42,9 +42,9 @@ internal sealed record MergedSession(
 /// overlay, the shell, then the destination — and eight sessions in nine
 /// seconds is a faithful record of a machine, not a useful record of a person.
 ///
-/// DOCS/Tracking.md §F settles the policy: keep every raw transition, and group
+/// DOCS/specs/tracking.md §F settles the policy: keep every raw transition, and group
 /// the short ones when displaying. This is the one implementation of that rule.
-/// It runs in the tracker, never in React, so DOCS/data and database.md §26
+/// It runs in the tracker, never in React, so DOCS/specs/data-and-database.md §26
 /// holds: the UI formats what it is given and derives nothing.
 ///
 /// <b>Filter, then coalesce.</b> Sessions shorter than the threshold are
@@ -60,7 +60,7 @@ internal sealed record MergedSession(
 /// rows all come from the merged view, so no two screens can disagree about how
 /// many times you used something. The cost is that sub-threshold activity is
 /// excluded from totals — at most a few seconds a day, and under-reporting is
-/// the direction DOCS/data and database.md §7 explicitly prefers.
+/// the direction DOCS/specs/data-and-database.md §7 explicitly prefers.
 /// </summary>
 internal static class SessionMerger
 {

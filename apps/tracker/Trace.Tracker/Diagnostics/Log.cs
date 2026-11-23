@@ -14,7 +14,7 @@ public enum LogLevel
 /// <summary>
 /// Rolling file log for the tracker.
 ///
-/// A log file is a persistence path like any other. DOCS/Privacy.md §29 requires
+/// A log file is a persistence path like any other. DOCS/specs/privacy.md §29 requires
 /// that excluded applications and window titles never reach storage, and a log
 /// line is storage. Two rules enforce that here:
 ///

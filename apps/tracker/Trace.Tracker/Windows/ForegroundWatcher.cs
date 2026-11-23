@@ -7,7 +7,7 @@ namespace Trace.Tracker.Windows;
 /// <summary>
 /// Turns Windows foreground and title-change events into signals.
 ///
-/// This is event-driven rather than polled, per DOCS/project-architecture.md §6:
+/// This is event-driven rather than polled, per DOCS/engineering/project-architecture.md §6:
 /// Windows tells us when the foreground changes instead of us asking hundreds of
 /// times a minute.
 ///
@@ -18,7 +18,7 @@ namespace Trace.Tracker.Windows;
 ///  * <b>EVENT_OBJECT_NAMECHANGE</b>, scoped to the current foreground process —
 ///    the title changed without the window changing. This is what catches a
 ///    browser tab switch or an editor moving between files, which is most of
-///    what makes window sessions useful (DOCS/MVP.md §4). It is deliberately
+///    what makes window sessions useful (DOCS/product/mvp.md §4). It is deliberately
 ///    scoped to one process: a machine-wide name-change hook fires constantly
 ///    for windows nobody is looking at.
 ///
@@ -113,7 +113,7 @@ internal sealed class ForegroundWatcher : IDisposable
     /// Re-points the title hook at whatever is now in front, and optionally
     /// reports the change. Callable from outside to re-seed after unlock or
     /// resume, when Windows sends no foreground event but the front window may
-    /// well have changed (DOCS/Tracking.md §I, §J).
+    /// well have changed (DOCS/specs/tracking.md §I, §J).
     /// </summary>
     public void AdoptForegroundWindow(IntPtr hwnd, bool emitSignal)
     {

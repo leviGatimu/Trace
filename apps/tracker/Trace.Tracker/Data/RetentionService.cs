@@ -10,7 +10,7 @@ namespace Trace.Tracker.Data;
 /// The default is FOREVER (implementation plan §14A): a product whose premise is
 /// that your computer remembers should not quietly forget. Anything shorter is
 /// an explicit choice, and when it is made, deletion is real — rows go, no
-/// hidden archive (DOCS/Privacy.md §21).
+/// hidden archive (DOCS/specs/privacy.md §21).
 /// </summary>
 internal static class RetentionService
 {
@@ -44,6 +44,13 @@ internal static class RetentionService
             // outlive the history they describe.
             var sessions = SessionRepository.DeleteRange(connection, long.MinValue, cutoff);
             var events = EventRepository.DeleteRange(connection, long.MinValue, cutoff);
+            Coverage.WindowsRecordImport.DeleteRange(connection, long.MinValue, cutoff);
+            using (var processes = connection.CreateCommand())
+            {
+                processes.CommandText = "DELETE FROM process_instances WHERE started_at < $cutoff AND end_state <> 'running';";
+                processes.Parameters.AddWithValue("$cutoff", cutoff);
+                processes.ExecuteNonQuery();
+            }
             var applications = ApplicationRepository.DeleteOrphans(connection);
 
             // Cascaded rows are not counted individually by SQLite; reporting

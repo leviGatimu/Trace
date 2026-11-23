@@ -3,7 +3,7 @@ using Trace.Contracts;
 namespace Trace.Tracker.Tests;
 
 /// <summary>
-/// One test per row of the DOCS/Tracking.md §"MVP rules" table, plus the edge
+/// One test per row of the DOCS/specs/tracking.md §"MVP rules" table, plus the edge
 /// cases that table implies but does not spell out.
 ///
 /// These run without Windows and without a database, which is the entire point
@@ -47,7 +47,7 @@ public class SessionEngineTests
     [Fact]
     public void Returning_to_an_earlier_app_creates_a_separate_session()
     {
-        // DOCS/Tracking.md §E: Chrome -> VS Code -> Chrome is three sessions.
+        // DOCS/specs/tracking.md §E: Chrome -> VS Code -> Chrome is three sessions.
         // Daily totals group them; the timeline keeps them distinct.
         var h = new EngineHarness().Start()
             .Switch("chrome.exe").AdvanceMinutes(20)
@@ -63,7 +63,7 @@ public class SessionEngineTests
     [Fact]
     public void Duplicate_foreground_events_do_not_create_extra_sessions()
     {
-        // DOCS/data and database.md §12. Windows really does emit these — the
+        // DOCS/specs/data-and-database.md §12. Windows really does emit these — the
         // Milestone 2 diagnose run showed consecutive duplicates for one window.
         var h = new EngineHarness().Start().Switch("chrome.exe", "YouTube");
 
@@ -79,7 +79,7 @@ public class SessionEngineTests
     [Fact]
     public void Two_windows_of_the_same_app_share_one_application_session()
     {
-        // DOCS/Tracking.md §O.
+        // DOCS/specs/tracking.md §O.
         var h = new EngineHarness().Start()
             .Switch("code.exe", "main.ts")
             .AdvanceMinutes(10)
@@ -96,7 +96,7 @@ public class SessionEngineTests
     [Fact]
     public void Foreground_process_exit_ends_the_session_as_app_exit()
     {
-        // DOCS/Tracking.md §P.
+        // DOCS/specs/tracking.md §P.
         var h = new EngineHarness().Start()
             .Switch("chrome.exe", "YouTube")
             .AdvanceMinutes(34)
@@ -137,7 +137,7 @@ public class SessionEngineTests
     [Fact]
     public void Title_change_within_an_app_changes_the_window_session_only()
     {
-        // DOCS/Tracking.md §D — the browser tab-switch case.
+        // DOCS/specs/tracking.md §D — the browser tab-switch case.
         var h = new EngineHarness().Start()
             .Switch("chrome.exe", "YouTube")
             .AdvanceMinutes(18).ChangeTitle("GitHub")
@@ -210,7 +210,7 @@ public class SessionEngineTests
     [Fact]
     public void Idle_pauses_active_time_without_ending_the_session()
     {
-        // DOCS/Tracking.md §G: the user never stopped using Chrome, they stopped
+        // DOCS/specs/tracking.md §G: the user never stopped using Chrome, they stopped
         // interacting. One session, split into active and idle.
         var h = new EngineHarness().Start()
             .Switch("chrome.exe", "YouTube")
@@ -230,7 +230,7 @@ public class SessionEngineTests
     public void Idle_start_is_backdated_to_the_last_input()
     {
         // Without this, every idle period would fabricate a full threshold of
-        // active time the user never spent (DOCS/data and database.md §28).
+        // active time the user never spent (DOCS/specs/data-and-database.md §28).
         var h = new EngineHarness().Start()
             .Switch("chrome.exe")
             .AdvanceMinutes(42)
@@ -264,7 +264,7 @@ public class SessionEngineTests
     [Fact]
     public void Idle_time_belongs_to_the_app_that_was_in_front_when_it_began()
     {
-        // DOCS/Tracking.md §H.
+        // DOCS/specs/tracking.md §H.
         var h = new EngineHarness().Start()
             .Switch("chrome.exe")
             .AdvanceMinutes(32).AdvanceMinutes(5).GoIdle(secondsAgo: 300)
@@ -334,7 +334,7 @@ public class SessionEngineTests
     [Fact]
     public void Unlock_starts_a_session_for_whatever_is_in_front_now()
     {
-        // DOCS/Tracking.md §I: we do not assume the previous app is still active.
+        // DOCS/specs/tracking.md §I: we do not assume the previous app is still active.
         var h = new EngineHarness().Start()
             .Switch("chrome.exe").AdvanceMinutes(42)
             .Lock().AdvanceMinutes(49);
@@ -350,7 +350,7 @@ public class SessionEngineTests
     [Fact]
     public void Sleep_does_not_record_the_time_the_machine_was_asleep()
     {
-        // DOCS/Tracking.md §J: 22:00 -> sleep 22:30 -> wake 07:00 must never
+        // DOCS/specs/tracking.md §J: 22:00 -> sleep 22:30 -> wake 07:00 must never
         // read as a nine-hour Chrome session.
         var h = new EngineHarness().Start()
             .Switch("chrome.exe").AdvanceMinutes(30)
@@ -384,7 +384,7 @@ public class SessionEngineTests
     [Fact]
     public void Pause_stops_all_recording()
     {
-        // DOCS/Privacy.md §10: pause must be real, not cosmetic.
+        // DOCS/specs/privacy.md §10: pause must be real, not cosmetic.
         var h = new EngineHarness().Start()
             .Switch("chrome.exe").AdvanceMinutes(15)
             .Pause();
@@ -416,7 +416,7 @@ public class SessionEngineTests
     [Fact]
     public void A_tracker_started_paused_records_nothing()
     {
-        // DOCS/Privacy.md §27: paused survives a reboot, or the user cannot
+        // DOCS/specs/privacy.md §27: paused survives a reboot, or the user cannot
         // trust the control.
         var h = new EngineHarness();
         h.PlaceInForeground("chrome.exe", "YouTube").Start(paused: true);
@@ -433,7 +433,7 @@ public class SessionEngineTests
     [Fact]
     public void An_excluded_application_leaves_no_row_anywhere()
     {
-        // DOCS/Privacy.md §7 and §29 — not merely no session: no window session,
+        // DOCS/specs/privacy.md §7 and §29 — not merely no session: no window session,
         // and no event that could identify it either.
         var h = new EngineHarness().Start();
         h.Sink.Excluded.Add("1password.exe");
@@ -455,7 +455,7 @@ public class SessionEngineTests
     [Fact]
     public void Excluding_the_app_in_use_stops_recording_it_immediately()
     {
-        // DOCS/Privacy.md §6 — not at the next application switch.
+        // DOCS/specs/privacy.md §6 — not at the next application switch.
         var h = new EngineHarness().Start()
             .Switch("1password.exe", "Vault").AdvanceMinutes(4)
             .Exclude("1password.exe");
@@ -471,7 +471,7 @@ public class SessionEngineTests
     [Fact]
     public void Disabling_window_titles_keeps_sessions_but_records_no_window_history()
     {
-        // DOCS/Privacy.md §28.
+        // DOCS/specs/privacy.md §28.
         var h = new EngineHarness();
         h.Sink.RecordWindowTitles = false;
 
@@ -569,7 +569,7 @@ public class SessionEngineTests
     [Fact]
     public void The_MVP_success_test_from_the_documentation()
     {
-        // DOCS/MVP.md §10, verbatim:
+        // DOCS/product/mvp.md §10, verbatim:
         //   09:00 Chrome, 09:20 VS Code, 10:00 Chrome, 10:30 walk away,
         //   10:40 return, 11:00 lock, 11:30 unlock.
         // Expected: Chrome 1h 10m, VS Code 40m.

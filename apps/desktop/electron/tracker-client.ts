@@ -39,7 +39,7 @@ interface Pending {
  * The tracker is the source of truth and outlives this process, so the client
  * is written to expect the tracker to come and go — reconnecting on its own,
  * and reporting an honest "unavailable" rather than serving stale data as
- * though it were live (DOCS/Windows Integration §21).
+ * though it were live (DOCS/specs/windows-integration.md §21).
  */
 export class TrackerClient extends EventEmitter {
   private socket: net.Socket | null = null;
@@ -58,7 +58,10 @@ export class TrackerClient extends EventEmitter {
   }
 
   async start(): Promise<void> {
-    this.pipePath = `\\\\.\\pipe\\${PIPE_NAME_PREFIX}${await currentUserSid()}`;
+    // TRACE_SANDBOX (development only) points the dashboard at a separate
+    // tracker running on a copy of the history; see TraceSandbox.cs.
+    const suffix = process.env.TRACE_SANDBOX ? '.sandbox' : '';
+    this.pipePath = `\\\\.\\pipe\\${PIPE_NAME_PREFIX}${await currentUserSid()}${suffix}`;
     this.connect();
   }
 
@@ -296,7 +299,10 @@ async function currentUserSid(): Promise<string> {
     return cachedSid;
   }
 
-  const { stdout } = await execFileAsync('whoami', ['/user', '/fo', 'csv', '/nh']);
+  // The full path: launched from Git Bash, PATH finds the Unix `whoami` first,
+  // which prints a user name and no SID, and the dashboard never connected.
+  const whoami = `${process.env.SystemRoot ?? 'C:\\Windows'}\\System32\\whoami.exe`;
+  const { stdout } = await execFileAsync(whoami, ['/user', '/fo', 'csv', '/nh']);
   const sid = stdout.trim().split(',').pop()?.replaceAll('"', '').trim();
 
   if (!sid?.startsWith('S-1-')) {

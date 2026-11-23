@@ -10,9 +10,9 @@ namespace Trace.Tracker.Windows;
 /// What is deliberately absent matters as much as what is here. There is no
 /// SetWindowsHookEx, no keyboard or mouse hook, no GetAsyncKeyState, no
 /// clipboard API, no screen-capture API, no UI Automation into other processes,
-/// and no DLL injection. That is both the privacy contract in DOCS/Privacy.md §3
+/// and no DLL injection. That is both the privacy contract in DOCS/specs/privacy.md §3
 /// and what keeps the binary from resembling malware to endpoint protection
-/// (DOCS/Windows Integration &amp; Application Lifecycle.md §32).
+/// (DOCS/specs/windows-integration.md &amp; Application Lifecycle.md §32).
 /// </summary>
 internal static partial class NativeMethods
 {
@@ -79,11 +79,160 @@ internal static partial class NativeMethods
         ref uint lpdwSize);
 
     // -----------------------------------------------------------------------
+    // Running processes (background apps, opt-in)
+    //
+    // A Toolhelp snapshot lists each process's id, parent id and executable
+    // name, and nothing else: no command line, no memory, no modules. Reading
+    // a process's start time needs only the same limited right as its path.
+    // -----------------------------------------------------------------------
+
+    internal const uint TH32CS_SNAPPROCESS = 0x00000002;
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct PROCESSENTRY32W
+    {
+        public uint dwSize;
+        public uint cntUsage;
+        public uint th32ProcessID;
+        public UIntPtr th32DefaultHeapID;
+        public uint th32ModuleID;
+        public uint cntThreads;
+        public uint th32ParentProcessID;
+        public int pcPriClassBase;
+        public uint dwFlags;
+        public fixed char szExeFile[260];
+    }
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    internal static partial IntPtr CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessID);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "Process32FirstW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static unsafe partial bool Process32First(IntPtr hSnapshot, PROCESSENTRY32W* lppe);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "Process32NextW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static unsafe partial bool Process32Next(IntPtr hSnapshot, PROCESSENTRY32W* lppe);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetProcessTimes(
+        IntPtr hProcess, out long lpCreationTime, out long lpExitTime, out long lpKernelTime, out long lpUserTime);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool ProcessIdToSessionId(uint dwProcessId, out uint pSessionId);
+
+    // -----------------------------------------------------------------------
+    // System page (live only; nothing here is stored)
+    //
+    // Whole-machine CPU and memory, GPU utilisation from Windows' own
+    // performance counters, and the list of connected devices by name and
+    // class. No device is opened, read from or written to.
+    // -----------------------------------------------------------------------
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetSystemTimes(out long lpIdleTime, out long lpKernelTime, out long lpUserTime);
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct MEMORYSTATUSEX
+    {
+        public uint dwLength;
+        public uint dwMemoryLoad;
+        public ulong ullTotalPhys;
+        public ulong ullAvailPhys;
+        public ulong ullTotalPageFile;
+        public ulong ullAvailPageFile;
+        public ulong ullTotalVirtual;
+        public ulong ullAvailVirtual;
+        public ulong ullAvailExtendedVirtual;
+    }
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct PROCESS_MEMORY_COUNTERS
+    {
+        public uint cb;
+        public uint PageFaultCount;
+        public UIntPtr PeakWorkingSetSize;
+        public UIntPtr WorkingSetSize;
+        public UIntPtr QuotaPeakPagedPoolUsage;
+        public UIntPtr QuotaPagedPoolUsage;
+        public UIntPtr QuotaPeakNonPagedPoolUsage;
+        public UIntPtr QuotaNonPagedPoolUsage;
+        public UIntPtr PagefileUsage;
+        public UIntPtr PeakPagefileUsage;
+    }
+
+    [LibraryImport("kernel32.dll", EntryPoint = "K32GetProcessMemoryInfo", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetProcessMemoryInfo(IntPtr hProcess, out PROCESS_MEMORY_COUNTERS counters, uint cb);
+
+    internal const uint PDH_FMT_DOUBLE = 0x00000200;
+    internal const uint PDH_FMT_LARGE = 0x00000400;
+    internal const uint PDH_MORE_DATA = 0x800007D2;
+
+    [LibraryImport("pdh.dll", EntryPoint = "PdhOpenQueryW", StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial uint PdhOpenQuery(string? dataSource, IntPtr userData, out IntPtr query);
+
+    [LibraryImport("pdh.dll", EntryPoint = "PdhAddEnglishCounterW", StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial uint PdhAddEnglishCounter(IntPtr query, string counterPath, IntPtr userData, out IntPtr counter);
+
+    [LibraryImport("pdh.dll")]
+    internal static partial uint PdhCollectQueryData(IntPtr query);
+
+    [LibraryImport("pdh.dll", EntryPoint = "PdhGetFormattedCounterArrayW")]
+    internal static partial uint PdhGetFormattedCounterArray(
+        IntPtr counter, uint format, ref uint bufferSize, out uint itemCount, IntPtr itemBuffer);
+
+    internal const uint DIGCF_PRESENT = 0x00000002;
+    internal const uint DIGCF_ALLCLASSES = 0x00000004;
+    internal const uint SPDRP_DEVICEDESC = 0x00000000;
+    internal const uint SPDRP_CLASS = 0x00000007;
+    internal const uint SPDRP_MFG = 0x0000000B;
+    internal const uint SPDRP_FRIENDLYNAME = 0x0000000C;
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct SP_DEVINFO_DATA
+    {
+        public uint cbSize;
+        public Guid ClassGuid;
+        public uint DevInst;
+        public UIntPtr Reserved;
+    }
+
+    [LibraryImport("setupapi.dll", EntryPoint = "SetupDiGetClassDevsW", SetLastError = true)]
+    internal static partial IntPtr SetupDiGetClassDevs(IntPtr classGuid, IntPtr enumerator, IntPtr hwndParent, uint flags);
+
+    [LibraryImport("setupapi.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetupDiEnumDeviceInfo(IntPtr deviceInfoSet, uint memberIndex, ref SP_DEVINFO_DATA deviceInfoData);
+
+    [LibraryImport("setupapi.dll", EntryPoint = "SetupDiGetDeviceRegistryPropertyW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static unsafe partial bool SetupDiGetDeviceRegistryProperty(
+        IntPtr deviceInfoSet, ref SP_DEVINFO_DATA deviceInfoData, uint property, out uint propertyRegDataType,
+        byte* propertyBuffer, uint propertyBufferSize, out uint requiredSize);
+
+    [LibraryImport("setupapi.dll", EntryPoint = "SetupDiGetDeviceInstanceIdW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static unsafe partial bool SetupDiGetDeviceInstanceId(
+        IntPtr deviceInfoSet, ref SP_DEVINFO_DATA deviceInfoData, char* deviceInstanceId, uint deviceInstanceIdSize, out uint requiredSize);
+
+    [LibraryImport("setupapi.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetupDiDestroyDeviceInfoList(IntPtr deviceInfoSet);
+
+    // -----------------------------------------------------------------------
     // Idle detection
     //
     // GetLastInputInfo returns a tick count and nothing else. No key code, no
     // coordinate, no content. It answers exactly one question — "how long since
-    // the user last interacted?" — which is the whole of what DOCS/Privacy.md §3
+    // the user last interacted?" — which is the whole of what DOCS/specs/privacy.md §3
     // permits.
     // -----------------------------------------------------------------------
 

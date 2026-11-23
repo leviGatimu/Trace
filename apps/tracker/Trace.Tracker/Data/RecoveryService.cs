@@ -8,7 +8,7 @@ namespace Trace.Tracker.Data;
 /// Closes sessions left open by a crash, a power cut, or a shutdown Trace never
 /// saw.
 ///
-/// The governing rule is DOCS/data and database.md §28: never fabricate
+/// The governing rule is DOCS/specs/data-and-database.md §28: never fabricate
 /// activity. A session that was open when the machine died is closed at the
 /// last heartbeat — the last moment Trace can actually vouch for — not at the
 /// current time, and not at some guess in between. That under-reports by at

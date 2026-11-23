@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "categories": [
+    "Browser",
+    "Communication",
+    "Development",
+    "Productivity",
+    "AI",
+    "Creative",
+    "Media",
+    "Gaming",
+    "Utilities",
+    "System"
+  ],
+  "applications": [
+    { "name": "Google Chrome", "category": "Browser", "executables": ["chrome.exe"] },
+    { "name": "Microsoft Edge", "category": "Browser", "executables": ["msedge.exe"] },
+    { "name": "Mozilla Firefox", "category": "Browser", "executables": ["firefox.exe"] },
+    { "name": "Brave", "category": "Browser", "executables": ["brave.exe"] },
+    { "name": "Opera", "category": "Browser", "executables": ["opera.exe"] },
+
+    {
+      "name": "WhatsApp",
+      "category": "Communication",
+      "executables": ["whatsapp.exe", "whatsapp.root.exe"],
+      "packages": ["5319275A.WhatsAppDesktop"]
+    },
+    {
+      "name": "Telegram",
+      "category": "Communication",
+      "executables": ["telegram.exe"],
+      "packages": ["TelegramMessengerLLP.TelegramDesktop"]
+    },
+    { "name": "Discord", "category": "Communication", "executables": ["discord.exe"] },
+    { "name": "Slack", "category": "Communication", "executables": ["slack.exe"] },
+    { "name": "Zoom", "category": "Communication", "executables": ["zoom.exe"] },
+    {
+      "name": "Microsoft Teams",
+      "category": "Communication",
+      "executables": ["ms-teams.exe", "teams.exe"],
+      "packages": ["MSTeams"]
+    },
+    { "name": "Microsoft Outlook", "category": "Communication", "executables": ["outlook.exe", "olk.exe"] },
+
+    { "name": "Visual Studio Code", "category": "Development", "executables": ["code.exe"] },
+    { "name": "Cursor", "category": "Development", "executables": ["cursor.exe"] },
+    { "name": "Visual Studio", "category": "Development", "executables": ["devenv.exe"] },
+    {
+      "name": "Windows Terminal",
+      "category": "Development",
+      "executables": ["windowsterminal.exe"],
+      "packages": ["Microsoft.WindowsTerminal"]
+    },
+    { "name": "Windows PowerShell", "category": "Development", "executables": ["powershell.exe"] },
+    { "name": "PowerShell", "category": "Development", "executables": ["pwsh.exe"] },
+    { "name": "Command Prompt", "category": "Development", "executables": ["cmd.exe"] },
+    { "name": "Docker Desktop", "category": "Development", "executables": ["docker desktop.exe"] },
+
+    { "name": "Claude", "category": "AI", "executables": ["claude.exe"], "packages": ["Claude"] },
+    { "name": "Codex", "category": "AI", "packages": ["OpenAI.Codex"] },
+    { "name": "Copilot", "category": "AI", "executables": ["copilotapp.exe"] },
+
+    { "name": "Microsoft Word", "category": "Productivity", "executables": ["winword.exe"] },
+    { "name": "Microsoft Excel", "category": "Productivity", "executables": ["excel.exe"] },
+    { "name": "Microsoft PowerPoint", "category": "Productivity", "executables": ["powerpnt.exe"] },
+    { "name": "Microsoft OneNote", "category": "Productivity", "executables": ["onenote.exe"] },
+    { "name": "Notion", "category": "Productivity", "executables": ["notion.exe"] },
+    { "name": "Obsidian", "category": "Productivity", "executables": ["obsidian.exe"] },
+    {
+      "name": "Notepad",
+      "category": "Productivity",
+      "executables": ["notepad.exe"],
+      "packages": ["Microsoft.WindowsNotepad"]
+    },
+
+    { "name": "Blender", "category": "Creative", "executables": ["blender.exe"] },
+    { "name": "CapCut", "category": "Creative", "executables": ["capcut.exe"] },
+    { "name": "Adobe Illustrator", "category": "Creative", "executables": ["illustrator.exe"] },
+    { "name": "Adobe Photoshop", "category": "Creative", "executables": ["photoshop.exe"] },
+    { "name": "Figma", "category": "Creative", "executables": ["figma.exe"] },
+    { "name": "OBS Studio", "category": "Creative", "executables": ["obs64.exe"] },
+
+    { "name": "Spotify", "category": "Media", "executables": ["spotify.exe"], "packages": ["SpotifyAB.SpotifyMusic"] },
+    { "name": "VLC media player", "category": "Media", "executables": ["vlc.exe"] },
+    { "name": "Media Player", "category": "Media", "packages": ["Microsoft.ZuneMusic"] },
+    { "name": "Photos", "category": "Media", "packages": ["Microsoft.Windows.Photos"] },
+
+    { "name": "Steam", "category": "Gaming", "executables": ["steam.exe"] },
+    { "name": "Roblox", "category": "Gaming", "executables": ["robloxplayerbeta.exe"] },
+    { "name": "Fortnite", "category": "Gaming", "executables": ["fortniteclient-win64-shipping.exe"] },
+
+    { "name": "Snipping Tool", "category": "Utilities", "executables": ["snippingtool.exe"], "packages": ["Microsoft.ScreenSketch"] },
+    { "name": "Calculator", "category": "Utilities", "packages": ["Microsoft.WindowsCalculator"] },
+    { "name": "Task Manager", "category": "Utilities", "executables": ["taskmgr.exe"] },
+    { "name": "Microsoft OneDrive", "category": "Utilities", "executables": ["onedrive.exe"] },
+    { "name": "Remote Desktop", "category": "Utilities", "executables": ["msrdc.exe", "mstsc.exe"] },
+
+    { "name": "Windows Explorer", "category": "System", "executables": ["explorer.exe"] },
+    { "name": "Settings", "category": "System", "executables": ["systemsettings.exe"] },
+    { "name": "Desktop Window Manager", "category": "System", "executables": ["dwm.exe"] },
+    { "name": "Application Frame Host", "category": "System", "executables": ["applicationframehost.exe"] },
+    { "name": "Windows Shell Experience Host", "category": "System", "executables": ["shellexperiencehost.exe"] },
+    { "name": "Windows Shell Host", "category": "System", "executables": ["shellhost.exe"] },
+    { "name": "Start menu", "category": "System", "executables": ["startmenuexperiencehost.exe"] },
+    { "name": "Windows Search", "category": "System", "executables": ["searchhost.exe", "searchapp.exe"] },
+    { "name": "Lock screen", "category": "System", "executables": ["lockapp.exe"] },
+    { "name": "Feedback Hub", "category": "System", "executables": ["feedbackhub.exe"], "packages": ["Microsoft.WindowsFeedbackHub"] }
+  ]
+}

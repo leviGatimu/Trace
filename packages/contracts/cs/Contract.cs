@@ -59,6 +59,9 @@ public enum IpcErrorCode
     E_DEGRADED,
     E_BUSY,
     E_INTERNAL,
+
+    /// <summary>The action needs the Trace PIN. Unlock with protection.unlock, then retry.</summary>
+    E_LOCKED,
 }
 
 public sealed record IpcPush(string Event, object Data);
@@ -137,8 +140,12 @@ public static class IpcMethods
     public const string AnalyticsGetSummary = "analytics.getSummary";
     public const string ApplicationsList = "applications.list";
     public const string ApplicationsGetDetail = "applications.getDetail";
+    public const string ApplicationsGetIcon = "applications.getIcon";
     public const string SessionsGetDetail = "sessions.getDetail";
     public const string SearchQuery = "search.query";
+    public const string CoverageGet = "coverage.get";
+    public const string BackgroundGet = "background.get";
+    public const string SystemLive = "system.live";
     public const string SettingsGet = "settings.get";
     public const string SettingsUpdate = "settings.update";
     public const string TrackingPause = "tracking.pause";
@@ -147,6 +154,12 @@ public static class IpcMethods
     public const string DataDeleteApplication = "data.deleteApplication";
     public const string DataDeleteAll = "data.deleteAll";
     public const string DataExport = "data.export";
+    public const string ProtectionStatus = "protection.status";
+    public const string ProtectionSetup = "protection.setup";
+    public const string ProtectionUnlock = "protection.unlock";
+    public const string ProtectionLock = "protection.lock";
+    public const string ProtectionDisable = "protection.disable";
+    public const string ProtectionLog = "protection.log";
 
     /// <summary>
     /// The complete contract surface. ContractSurfaceTests asserts the router's
@@ -164,8 +177,12 @@ public static class IpcMethods
         AnalyticsGetSummary,
         ApplicationsList,
         ApplicationsGetDetail,
+        ApplicationsGetIcon,
         SessionsGetDetail,
         SearchQuery,
+        CoverageGet,
+        BackgroundGet,
+        SystemLive,
         SettingsGet,
         SettingsUpdate,
         TrackingPause,
@@ -174,6 +191,12 @@ public static class IpcMethods
         DataDeleteApplication,
         DataDeleteAll,
         DataExport,
+        ProtectionStatus,
+        ProtectionSetup,
+        ProtectionUnlock,
+        ProtectionLock,
+        ProtectionDisable,
+        ProtectionLog,
     ];
 }
 
@@ -341,7 +364,30 @@ public sealed record ApplicationDetail(
     long LastSeen,
     ApplicationUsage Usage,
     IReadOnlyList<ApplicationSessionRow> Sessions,
-    IReadOnlyList<WindowRollupRow> Windows);
+    IReadOnlyList<WindowRollupRow> Windows,
+    string? Category,
+    IReadOnlyList<ApplicationAlias> Aliases);
+
+public sealed record ApplicationIconQuery(long ApplicationId);
+
+/// <summary>The application's real icon as a PNG data URL, or null when none could be read.</summary>
+public sealed record ApplicationIcon(long ApplicationId, string? DataUrl);
+
+/// <summary>
+/// One observed executable behind an application profile. <c>Link</c> is
+/// 'package' (verified), 'executable-name' (inferred) or 'self'.
+/// </summary>
+public sealed record ApplicationAlias(
+    long ExecutableId,
+    string Executable,
+    string Name,
+    string? Path,
+    string? PackageFamily,
+    string? IdentitySource,
+    string Link,
+    long FirstSeen,
+    long LastSeen,
+    int SessionCount);
 
 public sealed record ApplicationUsage(
     int TodayActiveSeconds,
@@ -374,7 +420,10 @@ public sealed record SessionDetail(
     int IdleSeconds,
     EndReason? EndReason,
     IReadOnlyList<WindowSessionRow> WindowSessions,
-    IReadOnlyList<EventRow> Events);
+    IReadOnlyList<EventRow> Events,
+    // The process that owned the window, when observed (Trace 2.0 onwards).
+    long? ProcessId = null,
+    string? ExecutablePath = null);
 
 public sealed record WindowSessionRow(
     long WindowSessionId,
@@ -390,6 +439,139 @@ public sealed record EventRow(
     long? ApplicationId,
     long? SessionId,
     JsonElement? Metadata);
+
+// ---------------------------------------------------------------------------
+// coverage
+// ---------------------------------------------------------------------------
+
+public sealed record CoverageQuery(long FromUtcMs, long ToUtcMs);
+
+/// <summary>Every moment of a range, explained: recorded, or a labelled gap.</summary>
+/// <param name="TraceHistoryFrom">Trace's first recorded session; nothing before it is Trace's.</param>
+/// <param name="WindowsRecordsFrom">The oldest Windows record held; before it, gaps are unknown.</param>
+public sealed record CoverageReport(
+    long FromUtcMs,
+    long ToUtcMs,
+    long? TraceHistoryFrom,
+    long? WindowsRecordsFrom,
+    IReadOnlyList<CoverageSegment> Segments);
+
+/// <param name="Kind">
+/// recorded | locked | paused | asleep (Trace's own records), or a gap:
+/// powered-off | asleep | signed-out (Windows records), trace-stopped (inferred: Trace not
+/// running) | unrecorded-window (inferred: Trace running, the window in front not recordable) | unknown,
+/// or before-trace (earlier than Trace's first record).
+/// </param>
+/// <param name="Evidence">observed | inferred | unknown.</param>
+/// <param name="Source">trace | windows | none.</param>
+/// <param name="EvidenceIds">The records this segment rests on, e.g. "S-12", "WR-4".</param>
+public sealed record CoverageSegment(
+    string Kind,
+    long StartedAt,
+    long? EndedAt,
+    string Evidence,
+    string Source,
+    bool StartEstimated,
+    IReadOnlyList<string> EvidenceIds,
+    string Explanation);
+
+// ---------------------------------------------------------------------------
+// background apps
+// ---------------------------------------------------------------------------
+
+public sealed record BackgroundQuery(long FromUtcMs, long ToUtcMs);
+
+/// <param name="Enabled">Whether "Record background apps" is on.</param>
+/// <param name="RecordingSince">The first process ever recorded, or null.</param>
+public sealed record BackgroundReport(bool Enabled, long? RecordingSince, int RunningNow, IReadOnlyList<BackgroundApp> Apps);
+
+/// <param name="ApplicationId">The application profile, as everywhere else.</param>
+/// <param name="RunningSeconds">Time at least one of its processes ran in the range.</param>
+/// <param name="ForegroundSeconds">Time it was in front in the range; the rest of RunningSeconds was background.</param>
+public sealed record BackgroundApp(
+    long ApplicationId,
+    string Name,
+    string? Category,
+    int InstanceCount,
+    int RunningNow,
+    int RunningSeconds,
+    int ForegroundSeconds,
+    long FirstStartedAt,
+    long LastSeenAt,
+    IReadOnlyList<ProcessInstanceRow> Instances);
+
+/// <param name="StartObserved">True when the start is Windows' own creation time; false when it is the first poll that saw it.</param>
+/// <param name="EndState">running | ended (seen to end, to within the poll interval) | unknown (recording stopped first).</param>
+public sealed record ProcessInstanceRow(
+    long InstanceId,
+    long Pid,
+    long? ParentPid,
+    string? ParentExecutable,
+    string Executable,
+    string? Path,
+    long StartedAt,
+    bool StartObserved,
+    long? EndedAt,
+    string EndState,
+    long LastSeenAt);
+
+// ---------------------------------------------------------------------------
+// protection (the Trace PIN, auto-restart and the tamper log)
+// ---------------------------------------------------------------------------
+
+/// <param name="Enabled">A PIN is set, so pausing, quitting and weakening settings ask for it.</param>
+/// <param name="UnlockedUntilUtcMs">While in the future, guarded actions are allowed without the PIN.</param>
+/// <param name="LockedOutUntilUtcMs">After too many wrong tries, no PIN is checked until then.</param>
+/// <param name="AutoRestart">The scheduled task that restarts Trace is installed and switched on.</param>
+public sealed record ProtectionStatus(
+    bool Enabled,
+    long? UnlockedUntilUtcMs,
+    long? LockedOutUntilUtcMs,
+    int FailedAttempts,
+    bool AutoRestart);
+
+/// <param name="RecoveryCode">Shown once. Only its hash is kept.</param>
+public sealed record ProtectionSetupResult(string RecoveryCode, ProtectionStatus Status);
+
+/// <param name="Kind">See the TypeScript TamperKind for the list.</param>
+/// <param name="FromUtcMs">For a stop: when Trace was last known to be running.</param>
+/// <param name="ToUtcMs">For a stop: when it was running again.</param>
+public sealed record TamperEntry(
+    long Id,
+    long AtUtcMs,
+    string Kind,
+    string Detail,
+    long? FromUtcMs,
+    long? ToUtcMs);
+
+// ---------------------------------------------------------------------------
+// system (live only; nothing here is stored)
+// ---------------------------------------------------------------------------
+
+public sealed record SystemLive(
+    long AtUtcMs,
+    CpuLive Cpu,
+    MemoryLive Memory,
+    GpuLive? Gpu,
+    IReadOnlyList<ConnectedDevice> Devices,
+    int ProcessCount,
+    IReadOnlyList<LiveProcess> Processes);
+
+/// <param name="UsagePercent">Whole-machine use since the previous reading; 0 on the first.</param>
+public sealed record CpuLive(string Name, int LogicalCores, double UsagePercent);
+
+public sealed record MemoryLive(long TotalBytes, long UsedBytes);
+
+/// <param name="UsagePercent">The busiest adapter's busiest engine type, as Task Manager reports it.</param>
+public sealed record GpuLive(IReadOnlyList<string> Names, double UsagePercent, long? DedicatedUsedBytes, long? DedicatedTotalBytes);
+
+/// <param name="Kind">keyboard | mouse | speaker | microphone | camera | display | storage | phone | bluetooth | printer | controller.</param>
+/// <param name="Connection">USB | Bluetooth | Built-in.</param>
+public sealed record ConnectedDevice(string Name, string Kind, string Connection, string? Manufacturer);
+
+/// <param name="Executable">Processes are grouped by program file.</param>
+/// <param name="ApplicationId">The application profile, when Trace has seen this program before.</param>
+public sealed record LiveProcess(string Executable, string Name, long? ApplicationId, int Count, double CpuPercent, long MemoryBytes);
 
 // ---------------------------------------------------------------------------
 // search
@@ -462,7 +644,11 @@ public sealed record Settings(
     bool DeveloperLogging,
     bool BackgroundNoticeShown,
     string DataDirectory,
-    bool OnboardingCompleted);
+    bool OnboardingCompleted,
+    // Defaulted so a settings.json written before it existed still loads, and loads as on.
+    bool ImportWindowsRecords = true,
+    // Off until the owner turns it on: it records every process in the session.
+    bool RecordBackgroundApps = false);
 
 // ---------------------------------------------------------------------------
 // data

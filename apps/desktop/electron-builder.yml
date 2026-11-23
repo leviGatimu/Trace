@@ -34,7 +34,7 @@ win:
   target:
     - target: nsis
       arch: [x64]
-  # No code signing yet. DOCS/Windows Integration §32 plans it for a polished
+  # No code signing yet. DOCS/specs/windows-integration.md §32 plans it for a polished
   # public release; until then SmartScreen will warn, and pretending otherwise
   # would be worse than saying so.
 

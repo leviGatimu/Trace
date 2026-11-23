@@ -110,7 +110,7 @@ Current: **contract v1.0**.
 
 **The UI never computes activity truth.** Every duration, total and count in a
 response is final. The UI's only numeric responsibility is formatting
-(`8020` → `2h 14m`). This is `DOCS/data and database.md` §26 enforced by the
+(`8020` → `2h 14m`). This is `DOCS/specs/data-and-database.md` §26 enforced by the
 shape of this contract.
 
 ---
@@ -190,7 +190,7 @@ a wrong number that looks like a real one.
   value returns `E_BAD_PARAMS`; there is no unguarded delete-everything call.
 - Deletion is a real `DELETE` across `events`, `window_sessions`, `sessions`,
   and then orphaned `applications`. No soft-delete flag exists in the schema, so
-  "hidden but retained" is not representable (`DOCS/Privacy.md` §21).
+  "hidden but retained" is not representable (`DOCS/specs/privacy.md` §21).
 - `data.export` validates that `absolutePath` is rooted, that its parent
   directory exists, and that it is not inside Trace's own data directory.
 
@@ -217,7 +217,7 @@ producing what it renders.
 2. UI subscribes implicitly — all pushes go to all connected clients.
 3. On disconnect, the UI reconnects with backoff (0.5 s → 10 s, capped) and
    surfaces the "Tracker unavailable / [Restart Tracker]" state described in
-   `DOCS/Windows Integration & Application Lifecycle.md` §21.
+   `DOCS/specs/windows-integration.md` §21.
 4. While disconnected the UI **must not** render stale data as live. Cached
    history may remain visible, clearly marked; live indicators go to an
    unavailable state.

@@ -31,6 +31,11 @@ internal sealed class SearchQueries
             return [];
         }
 
+        if (Coverage.EvidenceIds.TryParse(text) is { } evidence)
+        {
+            return FindByEvidenceId(evidence.Prefix, evidence.Id, nowUtcMs);
+        }
+
         var limit = Math.Clamp(query.Limit ?? SearchQueryParams.DefaultLimit, 1,
             SearchQueryParams.MaxLimit);
         var from = query.FromUtcMs ?? long.MinValue;
@@ -47,26 +52,29 @@ internal sealed class SearchQueries
             command.CommandText =
                 """
                 SELECT * FROM (
-                    SELECT s.id, s.application_id, a.name, a.executable,
+                    SELECT s.id, p.id, p.name, a.executable,
                            w.title AS matched_title, 'title' AS matched_on,
                            s.started_at, s.ended_at,
                            MAX(w.duration_seconds) AS rank_duration
                       FROM window_sessions w
                       JOIN sessions s ON s.id = w.session_id
                       JOIN applications a ON a.id = s.application_id
+                      JOIN profiles p ON p.id = a.profile_id
                      WHERE w.title LIKE $pattern ESCAPE '\'
                        AND s.started_at >= $from AND s.started_at < $to
                      GROUP BY s.id, w.title
 
                     UNION ALL
 
-                    SELECT s.id, s.application_id, a.name, a.executable,
+                    SELECT s.id, p.id, p.name, a.executable,
                            NULL, 'application',
                            s.started_at, s.ended_at,
                            s.active_seconds
                       FROM sessions s
                       JOIN applications a ON a.id = s.application_id
-                     WHERE (a.name LIKE $pattern ESCAPE '\'
+                      JOIN profiles p ON p.id = a.profile_id
+                     WHERE (p.name LIKE $pattern ESCAPE '\'
+                            OR a.name LIKE $pattern ESCAPE '\'
                             OR a.executable LIKE $pattern ESCAPE '\')
                        AND s.started_at >= $from AND s.started_at < $to
                 )
@@ -100,6 +108,58 @@ internal sealed class SearchQueries
             }
 
             return results;
+        });
+    }
+
+    /// <summary>
+    /// The session a cited record belongs to: the span itself (S-), the span a
+    /// window title was shown in (W-), or the span an event was recorded in (E-).
+    /// A system event outside any span, and a Windows record, have no session and
+    /// return nothing here.
+    /// </summary>
+    private List<SearchResult> FindByEvidenceId(string prefix, long id, long nowUtcMs)
+    {
+        var sessionLookup = prefix switch
+        {
+            "S" => "SELECT $id",
+            "W" => "SELECT session_id FROM window_sessions WHERE id = $id",
+            "E" => "SELECT session_id FROM events WHERE id = $id",
+            _ => null,
+        };
+
+        if (sessionLookup is null)
+        {
+            return [];
+        }
+
+        return _database.Read(connection =>
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText =
+                $"""
+                SELECT s.id, p.id, p.name, a.executable, s.started_at, s.ended_at
+                  FROM sessions s
+                  JOIN applications a ON a.id = s.application_id
+                  JOIN profiles p ON p.id = a.profile_id
+                 WHERE s.id = ({sessionLookup});
+                """;
+            command.Parameters.AddWithValue("$id", id);
+
+            using var reader = command.ExecuteReader();
+            if (!reader.Read())
+            {
+                return new List<SearchResult>();
+            }
+
+            var startedAt = reader.GetInt64(4);
+            var endedAt = reader.IsDBNull(5) ? (long?)null : reader.GetInt64(5);
+            return
+            [
+                new SearchResult(
+                    reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3),
+                    $"{prefix}-{id}", "evidence", startedAt, endedAt,
+                    (int)(((endedAt ?? nowUtcMs) - startedAt) / 1000)),
+            ];
         });
     }
 

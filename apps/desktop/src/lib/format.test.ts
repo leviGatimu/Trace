@@ -90,6 +90,12 @@ describe('tidyWindowTitle', () => {
     expect(tidyWindowTitle('trace - tracker - notes', 'Notepad')).toBe('trace - tracker - notes');
   });
 
+  it('drops a title that only repeats the application name', () => {
+    expect(tidyWindowTitle('WhatsApp', 'WhatsApp')).toBeNull();
+    expect(tidyWindowTitle('whatsapp ', 'WhatsApp')).toBeNull();
+    expect(tidyWindowTitle('Voice call', 'WhatsApp')).toBe('Voice call');
+  });
+
   it('handles a window with no title', () => {
     expect(tidyWindowTitle(null, 'Notepad')).toBeNull();
   });

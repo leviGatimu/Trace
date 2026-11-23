@@ -1,8 +1,8 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Trace.Tracker.Diagnostics;
 using Trace.Tracker.Engine;
+using Trace.Tracker.Identity;
 
 namespace Trace.Tracker.Windows;
 
@@ -18,9 +18,8 @@ namespace Trace.Tracker.Windows;
 ///     one meaningless name. The product documentation does not anticipate this.
 ///
 ///  2. <b>Friendly names.</b> The history must read "Google Chrome", not
-///     "chrome.exe", so the executable's version resource is consulted. That
-///     costs a file read, so results are cached per path for the process
-///     lifetime — a given executable's description does not change underneath us.
+///     "chrome.exe". Naming is <see cref="ApplicationIdentityResolver"/>'s job;
+///     this class only finds the process and its executable.
 /// </summary>
 internal static class ProcessIdentity
 {
@@ -29,8 +28,9 @@ internal static class ProcessIdentity
     private const int MaxPathChars = 32768;
     private const int MaxClassNameChars = 256;
 
-    private static readonly ConcurrentDictionary<string, string> DisplayNameCache =
-        new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>The resolver every recorded application is named by, live and in backfill.</summary>
+    public static ApplicationIdentityResolver Resolver { get; } =
+        new(ApplicationRegistry.Default, WindowsIdentitySources.Instance);
 
     /// <summary>
     /// Resolves the application owning <paramref name="hWnd"/>, or null when the
@@ -69,17 +69,25 @@ internal static class ProcessIdentity
             return null;
         }
 
+        var identity = Resolver.Resolve(executable, path);
+
         return new TrackedApplication(
             processId,
             executable,
-            ResolveDisplayName(path, executable),
-            path);
+            identity.Name,
+            path,
+            identity.Category,
+            identity.PackageFamily,
+            identity.Source,
+            Resolver.Version,
+            identity.ProfileKey,
+            identity.ProfileLink);
     }
 
     /// <summary>
     /// Reads the title of <paramref name="hWnd"/> verbatim.
     ///
-    /// DOCS/Tracking.md closing note: store the raw title exactly as Windows
+    /// DOCS/specs/tracking.md closing note: store the raw title exactly as Windows
     /// reports it and clean only at presentation time, so the underlying history
     /// stays reliable. Capped at <paramref name="maxChars"/> because a few
     /// applications put an entire document into their title bar.
@@ -180,7 +188,7 @@ internal static class ProcessIdentity
     /// without elevation; elevated and protected processes will legitimately
     /// fail here and that is recorded as null rather than guessed at.
     /// </summary>
-    private static string? TryGetExecutablePath(uint processId)
+    internal static string? TryGetExecutablePath(uint processId)
     {
         var handle = NativeMethods.OpenProcess(
             NativeMethods.PROCESS_QUERY_LIMITED_INFORMATION, false, processId);
@@ -239,86 +247,5 @@ internal static class ProcessIdentity
         {
             return string.Empty;
         }
-    }
-
-    /// <summary>
-    /// "chrome.exe" -> "Google Chrome". Falls back through FileDescription,
-    /// ProductName, then a title-cased filename, so there is always something
-    /// human-readable and it is always derived from the executable itself.
-    /// </summary>
-    private static string ResolveDisplayName(string? path, string executable)
-    {
-        if (string.IsNullOrEmpty(path))
-        {
-            return TitleCaseExecutable(executable);
-        }
-
-        return DisplayNameCache.GetOrAdd(path, static p =>
-        {
-            try
-            {
-                var info = FileVersionInfo.GetVersionInfo(p);
-
-                // Not every publisher writes a human name here. Windows Notepad,
-                // for instance, sets FileDescription to the literal string
-                // "Notepad.exe", which would put a filename in the user's
-                // history. Strip a filename-shaped description back to its stem.
-                var description = Clean(info.FileDescription);
-                if (description is not null)
-                {
-                    return description;
-                }
-
-                var product = Clean(info.ProductName);
-                if (product is not null)
-                {
-                    return product;
-                }
-            }
-            catch (FileNotFoundException)
-            {
-            }
-            catch (IOException ex)
-            {
-                Log.Debug($"Could not read version info for {Log.Redact(p)}: {ex.Message}");
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-
-            return TitleCaseExecutable(Path.GetFileName(p));
-        });
-    }
-
-    /// <summary>
-    /// Normalises a version-resource string into something worth showing a user,
-    /// or null if there is nothing usable. Trailing ".exe" is removed so a
-    /// filename-shaped description becomes a name.
-    /// </summary>
-    private static string? Clean(string? value)
-    {
-        var trimmed = value?.Trim();
-        if (string.IsNullOrEmpty(trimmed))
-        {
-            return null;
-        }
-
-        if (trimmed.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-        {
-            trimmed = trimmed[..^4].Trim();
-        }
-
-        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
-    }
-
-    private static string TitleCaseExecutable(string executable)
-    {
-        var stem = Path.GetFileNameWithoutExtension(executable);
-        if (string.IsNullOrEmpty(stem))
-        {
-            return "Unknown application";
-        }
-
-        return char.ToUpperInvariant(stem[0]) + stem[1..];
     }
 }

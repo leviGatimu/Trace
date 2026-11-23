@@ -10,12 +10,12 @@ namespace Trace.Tracker.Windows;
 /// task, for three reasons that all matter to this product:
 ///
 ///  * it needs no administrator rights, so installing and enabling startup
-///    never shows a UAC prompt (DOCS/Windows Integration §14);
+///    never shows a UAC prompt (DOCS/specs/windows-integration.md §14);
 ///  * it is per-user, which keeps two Windows accounts independent as §26
 ///    requires;
 ///  * it is visible in Task Manager's Startup tab, where the user can see and
 ///    disable it. A background activity recorder that hides how it starts would
-///    contradict the no-stealth rule in DOCS/Privacy.md §12.
+///    contradict the no-stealth rule in DOCS/specs/privacy.md §12.
 ///
 /// The tracker is registered, never the dashboard: after a reboot Trace should
 /// be recording quietly, not opening a window (§7).

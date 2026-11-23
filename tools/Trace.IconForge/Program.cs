@@ -27,7 +27,7 @@ internal static class Program
 
         // Tray icons: no tile, because a Windows tray icon sits directly on the
         // taskbar and a filled square would read as a badge rather than a mark.
-        // Two states, because DOCS/Privacy.md §11 requires that whether Trace is
+        // Two states, because DOCS/specs/privacy.md §11 requires that whether Trace is
         // recording is always visible.
         WriteIco(Path.Combine(output, "trace-tray.ico"), size => Render(size, Variant.TrayActive));
         WriteIco(Path.Combine(output, "trace-tray-paused.ico"), size => Render(size, Variant.TrayPaused));
@@ -47,7 +47,7 @@ internal static class Program
         TrayPaused,
     }
 
-    // The palette from DOCS/UI and UX-design.md, so the mark belongs to the
+    // The palette from DOCS/specs/ui-ux-design.md, so the mark belongs to the
     // same product as the interface.
     private static readonly Color Ink = Color.FromArgb(0xF5, 0xF5, 0xF5);
     private static readonly Color InkDim = Color.FromArgb(0x8B, 0x90, 0x99);

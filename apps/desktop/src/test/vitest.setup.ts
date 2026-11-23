@@ -10,3 +10,21 @@ import { configure } from '@testing-library/react';
  * and flakier.
  */
 configure({ asyncUtilTimeout: 5000 });
+
+/**
+ * jsdom has no matchMedia. Answer "reduce motion" so counters and transitions
+ * show their final values at once, which is what the tests assert on.
+ */
+if (!window.matchMedia) {
+  window.matchMedia = (query: string) =>
+    ({
+      matches: query.includes('prefers-reduced-motion'),
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }) as MediaQueryList;
+}

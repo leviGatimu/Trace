@@ -6,18 +6,21 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { HashRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { HashRouter, Navigate, Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
 import { Onboarding } from '@/components/Onboarding';
+import { Splash } from '@/components/Splash';
+import { PinGate } from '@/components/PinGate';
+import { ProtectionPage } from '@/pages/ProtectionPage';
 import { TitleBar } from '@/components/TitleBar';
 import { useConnection } from '@/hooks/useTracker';
 import { getClockFormat, setClockFormat } from '@/lib/format';
 import { bridge, trace } from '@/services/trace';
-import { AnalyticsPage } from '@/pages/AnalyticsPage';
 import { ApplicationsPage } from '@/pages/ApplicationsPage';
+import { BackgroundPage } from '@/pages/BackgroundPage';
 import { CalendarPage } from '@/pages/CalendarPage';
 import { OverviewPage } from '@/pages/OverviewPage';
-import { SearchPage } from '@/pages/SearchPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { SystemPage } from '@/pages/SystemPage';
 import { TimelinePage } from '@/pages/TimelinePage';
 import { Shell } from './Shell';
 
@@ -151,6 +154,13 @@ function TrayNavigation() {
   return null;
 }
 
+/** Old search links land on Timeline & search with the same text. */
+function SearchRedirect() {
+  const [params] = useSearchParams();
+  const q = params.get('q');
+  return <Navigate to={q ? `/timeline?q=${encodeURIComponent(q)}` : '/timeline'} replace />;
+}
+
 export function App() {
   // Created per mount rather than at module scope, so the cache belongs to the
   // running application instead of to the module — which also means one test
@@ -177,6 +187,8 @@ export function App() {
           because its search field navigates.
         */}
         <div className="flex h-full flex-col">
+          <Splash />
+          <PinGate />
           <TitleBar />
 
           <div className="min-h-0 flex-1">
@@ -188,8 +200,11 @@ export function App() {
                   <Route path="/applications" element={<ApplicationsPage />} />
                   <Route path="/applications/:applicationId" element={<ApplicationsPage />} />
                   <Route path="/calendar" element={<CalendarPage />} />
-                  <Route path="/analytics" element={<AnalyticsPage />} />
-                  <Route path="/search" element={<SearchPage />} />
+                  <Route path="/background" element={<BackgroundPage />} />
+                  <Route path="/system" element={<SystemPage />} />
+                  <Route path="/protection" element={<ProtectionPage />} />
+                  <Route path="/analytics" element={<Navigate to="/calendar" replace />} />
+                  <Route path="/search" element={<SearchRedirect />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>

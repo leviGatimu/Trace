@@ -24,8 +24,14 @@ internal sealed class SettingsStore
     public SettingsStore(string path)
     {
         _path = path;
-        _current = Load(path);
+        (_current, LoadFailed) = Load(path);
     }
+
+    /// <summary>
+    /// settings.json existed but could not be read at startup, so tracking
+    /// started paused. Protection uses this to put the guarded settings back.
+    /// </summary>
+    public bool LoadFailed { get; }
 
     /// <summary>Raised after a successful save, so the tracker can re-read live settings.</summary>
     public event Action<Contracts.Settings>? Changed;
@@ -61,7 +67,14 @@ internal sealed class SettingsStore
         DeveloperLogging: false,
         BackgroundNoticeShown: false,
         DataDirectory: TracePaths.DataDirectory,
-        OnboardingCompleted: false);
+        OnboardingCompleted: false,
+        // On: power, boot and sign-in records are what tell a gap in the
+        // history apart from a period of no activity, and Windows deletes them
+        // within weeks. Shown and switchable in Settings.
+        ImportWindowsRecords: true,
+        // Off: recording every process is a larger step than recording the
+        // app in front, so it is the owner's to switch on.
+        RecordBackgroundApps: false);
 
     public Contracts.Settings Save(Contracts.Settings settings)
     {
@@ -87,11 +100,11 @@ internal sealed class SettingsStore
         }
     }
 
-    private static Contracts.Settings Load(string path)
+    private static (Contracts.Settings Settings, bool Failed) Load(string path)
     {
         if (!File.Exists(path))
         {
-            return Defaults();
+            return (Defaults(), false);
         }
 
         try
@@ -102,10 +115,10 @@ internal sealed class SettingsStore
             if (loaded is null)
             {
                 Log.Warn("settings.json was empty; using defaults.");
-                return Defaults();
+                return (Defaults(), false);
             }
 
-            return Normalise(loaded);
+            return (Normalise(loaded), false);
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
@@ -115,7 +128,7 @@ internal sealed class SettingsStore
             Log.Error(
                 "settings.json could not be read; falling back to defaults with tracking paused.", ex);
 
-            return Defaults() with { TrackingEnabled = false };
+            return (Defaults() with { TrackingEnabled = false }, true);
         }
     }
 

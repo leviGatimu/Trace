@@ -61,11 +61,13 @@ describe('the dashboard', () => {
 
     render(<App />);
 
-    // 14,320 seconds formatted, not recomputed from anything.
-    expect(await screen.findByText('3h 59m')).toBeDefined();
-    expect(await screen.findByText('2h 14m')).toBeDefined();
-    expect(await screen.findByText('Google Chrome')).toBeDefined();
-    expect(await screen.findByText('Visual Studio Code')).toBeDefined();
+    // 14,320 seconds formatted, not recomputed from anything: the headline
+    // card and the middle of the donut.
+    expect(await screen.findAllByText('3h 59m')).toHaveLength(2);
+    expect((await screen.findAllByText('Google Chrome')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Visual Studio Code')).length).toBeGreaterThan(0);
+    // Each application's share of the day, from the tracker's own totals.
+    expect(await screen.findByText('56%')).toBeDefined();
   });
 
   it('says so plainly when there is nothing recorded, rather than showing zeros', async () => {
@@ -91,11 +93,11 @@ describe('the dashboard', () => {
 
     render(<App />);
 
-    expect(await screen.findByText(/Nothing recorded for this day/)).toBeDefined();
+    expect(await screen.findByText(/Nothing recorded on this day/)).toBeDefined();
   });
 
   it('offers to restart the tracker when it is unavailable, and never shows stale data as live', async () => {
-    // DOCS/Windows Integration §21: not "Something went wrong".
+    // DOCS/specs/windows-integration.md §21: not "Something went wrong".
     const { restartTracker } = installMockBridge({
       connection: { status: 'unavailable', reason: 'The Trace tracker is not running.' },
     });
@@ -111,7 +113,7 @@ describe('the dashboard', () => {
     await waitFor(() => expect(restartTracker).toHaveBeenCalled());
 
     // The live indicator must not claim to be tracking.
-    expect(await screen.findByText('Not tracking')).toBeDefined();
+    expect(await screen.findByRole('status', { name: 'Not running' })).toBeDefined();
   });
 
   it('refuses to interpret a contract version it does not understand', async () => {
@@ -141,10 +143,9 @@ describe('the dashboard', () => {
 
     render(<App />);
 
-    // DOCS/Privacy.md §11 — the answer to "is this thing recording me?" is
+    // DOCS/specs/privacy.md §11 — the answer to "is this thing recording me?" is
     // always visible.
-    expect(await screen.findByText('Paused')).toBeDefined();
-    expect(await screen.findByText(/Nothing is being recorded/)).toBeDefined();
-    expect(await screen.findByText(/Everything stays on this device/)).toBeDefined();
+    expect(await screen.findByRole('status', { name: 'Paused' })).toBeDefined();
+    expect(await screen.findByRole('button', { name: 'Resume recording' })).toBeDefined();
   });
 });

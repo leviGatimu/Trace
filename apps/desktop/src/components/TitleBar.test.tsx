@@ -17,7 +17,7 @@ function renderTitleBar() {
       <Routes>
         <Route path="/" element={<p>Overview</p>} />
         {/* Stands in for the Search page, and proves where the query landed. */}
-        <Route path="/search" element={<Query />} />
+        <Route path="/timeline" element={<Query />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -26,7 +26,7 @@ function renderTitleBar() {
 }
 
 function Query() {
-  return <p>landed on search{useLocation().search}</p>;
+  return <p>landed on timeline{useLocation().search}</p>;
 }
 
 function field() {
@@ -73,7 +73,7 @@ describe('the title bar', () => {
 
     search('invoice');
 
-    expect(await screen.findByText(/landed on search\?q=invoice/)).toBeDefined();
+    expect(await screen.findByText(/landed on timeline\?q=invoice/)).toBeDefined();
   });
 
   it('ignores a query too short to search for', () => {

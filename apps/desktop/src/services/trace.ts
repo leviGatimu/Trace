@@ -2,18 +2,25 @@ import {
   DELETE_ALL_CONFIRMATION,
   type AnalyticsSummary,
   type ApplicationDetail,
+  type ApplicationIcon,
   type ApplicationSummary,
+  type BackgroundReport,
   type CalendarDay,
+  type CoverageReport,
   type CurrentActivity,
   type DayActivity,
   type DayRange,
   type DeleteResult,
   type ExportResult,
   type IpcMethod,
+  type ProtectionSetupResult,
+  type ProtectionStatus,
   type SearchResult,
   type SessionDetail,
   type Settings,
   type SettingsPatch,
+  type SystemLive,
+  type TamperEntry,
   type TimelineEntry,
   type TrackerStatus,
   type UsagePeriods,
@@ -72,7 +79,42 @@ export class TraceError extends Error {
   }
 }
 
+/**
+ * Asks for the Trace PIN. Resolves true once the tracker has accepted it,
+ * false if the person cancelled. Registered by <PinGate>.
+ */
+type PinPrompt = (message: string) => Promise<boolean>;
+let pinPrompt: PinPrompt | null = null;
+
+export function setPinPrompt(prompt: PinPrompt | null) {
+  pinPrompt = prompt;
+}
+
+/**
+ * The tracker refuses a guarded action with E_LOCKED. Rather than every
+ * screen handling that, the PIN is asked for here and the same request sent
+ * again, so pausing or deleting with a PIN set reads as one step.
+ * protection.* calls are excluded: they are how the PIN is checked.
+ */
 async function call<T>(method: IpcMethod, params?: unknown): Promise<T> {
+  try {
+    return await send<T>(method, params);
+  } catch (error) {
+    if (
+      error instanceof TraceError &&
+      error.code === 'E_LOCKED' &&
+      !method.startsWith('protection.') &&
+      pinPrompt &&
+      (await pinPrompt(error.message))
+    ) {
+      return send<T>(method, params);
+    }
+
+    throw error;
+  }
+}
+
+async function send<T>(method: IpcMethod, params?: unknown): Promise<T> {
   const response = await window.trace.request(method, params);
 
   if (!response.ok) {
@@ -89,7 +131,7 @@ async function call<T>(method: IpcMethod, params?: unknown): Promise<T> {
  * Every call the interface can make, named after the contract.
  *
  * Nothing here computes anything. Durations, totals, counts and buckets all
- * arrive already calculated — DOCS/data and database.md §26 is explicit that
+ * arrive already calculated — DOCS/specs/data-and-database.md §26 is explicit that
  * the interface must not be the thing deciding how long you used Chrome.
  */
 export const trace = {
@@ -118,6 +160,14 @@ export const trace = {
 
   search: (text: string, limit = 100) => call<SearchResult[]>('search.query', { text, limit }),
 
+  coverage: (range: DayRange) => call<CoverageReport>('coverage.get', range),
+
+  background: (range: DayRange) => call<BackgroundReport>('background.get', range),
+
+  systemLive: () => call<SystemLive>('system.live'),
+
+  icon: (applicationId: number) => call<ApplicationIcon>('applications.getIcon', { applicationId }),
+
   settings: () => call<Settings>('settings.get'),
   updateSettings: (patch: SettingsPatch) => call<Settings>('settings.update', patch),
 
@@ -136,6 +186,13 @@ export const trace = {
   deleteEverything: () => call<DeleteResult>('data.deleteAll', { confirm: DELETE_ALL_CONFIRMATION }),
 
   exportTo: (absolutePath: string) => call<ExportResult>('data.export', { absolutePath }),
+
+  protectionStatus: () => call<ProtectionStatus>('protection.status'),
+  setPin: (pin: string) => call<ProtectionSetupResult>('protection.setup', { pin }),
+  unlock: (secret: string) => call<ProtectionStatus>('protection.unlock', { secret }),
+  lockNow: () => call<ProtectionStatus>('protection.lock'),
+  disableProtection: () => call<ProtectionStatus>('protection.disable'),
+  tamperLog: (limit = 200) => call<TamperEntry[]>('protection.log', { limit }),
 };
 
 export const bridge = {

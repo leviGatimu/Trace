@@ -4,7 +4,7 @@
 
   <!--
     asInvoker: Trace never requests elevation.
-    DOCS/Windows Integration & Application Lifecycle.md §14 — every API the
+    DOCS/specs/windows-integration.md §14 — every API the
     tracker uses (GetForegroundWindow, GetWindowText, GetLastInputInfo,
     QueryFullProcessImageName with PROCESS_QUERY_LIMITED_INFORMATION,
     WTSRegisterSessionNotification) works at the user's own integrity level.

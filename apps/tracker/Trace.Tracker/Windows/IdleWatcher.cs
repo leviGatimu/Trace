@@ -9,13 +9,13 @@ namespace Trace.Tracker.Windows;
 /// Trace polls. It is cheap — GetLastInputInfo is a single call returning a tick
 /// count — and it is the minimum possible collection: no key, no button, no
 /// coordinate, no content. Just "how long since the last input?"
-/// (DOCS/Privacy.md §3.)
+/// (DOCS/specs/privacy.md §3.)
 ///
 /// The important behaviour is backdating. When a 2-second poll notices that the
 /// 5-minute threshold has been crossed, idle did not begin now — it began when
 /// the user last touched the machine. Reporting detection time instead would
 /// credit every idle period with a full threshold of active time the user never
-/// spent, which is exactly the fabrication DOCS/data and database.md §28 forbids.
+/// spent, which is exactly the fabrication DOCS/specs/data-and-database.md §28 forbids.
 /// </summary>
 internal sealed class IdleWatcher : IDisposable
 {

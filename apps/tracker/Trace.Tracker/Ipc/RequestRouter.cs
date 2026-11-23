@@ -16,12 +16,16 @@ internal sealed record TrackerServices(
     SettingsStore Settings,
     ActivityQueries Activity,
     SearchQueries Search,
+    Coverage.CoverageQueries Coverage,
+    Processes.BackgroundQueries Background,
+    Windows.SystemMonitor System,
     DataOperations Data,
     IClock Clock,
     Action<Signal> PostSignal,
     Func<string> TrackerVersion,
     Func<int> SchemaVersion,
-    Func<long> StartedAtUtcMs);
+    Func<long> StartedAtUtcMs,
+    Protection.ProtectionService Protection);
 
 /// <summary>
 /// Turns a request line into a response line.
@@ -49,16 +53,31 @@ internal sealed class RequestRouter
             [IpcMethods.AnalyticsGetSummary] = GetAnalytics,
             [IpcMethods.ApplicationsList] = ListApplications,
             [IpcMethods.ApplicationsGetDetail] = GetApplicationDetail,
+            [IpcMethods.ApplicationsGetIcon] = GetApplicationIcon,
             [IpcMethods.SessionsGetDetail] = GetSessionDetail,
             [IpcMethods.SearchQuery] = Search,
+            [IpcMethods.CoverageGet] = GetCoverage,
+            [IpcMethods.BackgroundGet] = GetBackground,
+            [IpcMethods.SystemLive] = _ => _services.System.Read(_services.Clock.UtcNowMs),
             [IpcMethods.SettingsGet] = _ => _services.Settings.Current,
             [IpcMethods.SettingsUpdate] = UpdateSettings,
-            [IpcMethods.TrackingPause] = _ => SetTracking(enabled: false),
-            [IpcMethods.TrackingResume] = _ => SetTracking(enabled: true),
+            [IpcMethods.TrackingPause] = _ => Pause(),
+            [IpcMethods.TrackingResume] = _ => Resume(),
             [IpcMethods.DataDeleteRange] = DeleteRange,
             [IpcMethods.DataDeleteApplication] = DeleteApplication,
             [IpcMethods.DataDeleteAll] = DeleteAll,
             [IpcMethods.DataExport] = Export,
+            [IpcMethods.ProtectionStatus] = _ => _services.Protection.Status(),
+            [IpcMethods.ProtectionSetup] = parameters =>
+                _services.Protection.Setup(Require<PinRequest>(parameters).Pin, _services.Settings.Current),
+            [IpcMethods.ProtectionUnlock] = parameters =>
+                _services.Protection.Unlock(Require<SecretRequest>(parameters).Secret),
+            [IpcMethods.ProtectionLock] = _ => _services.Protection.LockNow(),
+            [IpcMethods.ProtectionDisable] = _ => _services.Protection.Disable(),
+            [IpcMethods.ProtectionLog] = parameters =>
+                _services.Protection.List(parameters is { ValueKind: JsonValueKind.Object } element
+                                          && element.TryGetProperty("limit", out var limit)
+                                          && limit.TryGetInt32(out var n) ? n : 200),
         };
     }
 
@@ -147,10 +166,14 @@ internal sealed class RequestRouter
             (int)Math.Max(0, (_services.Clock.UtcNowMs - current.AsOfUtcMs) / 1000);
         var isIdle = current.State == TrackingState.IDLE;
 
+        // The engine knows the executable it recorded; the dashboard addresses
+        // applications by profile, so translate before it leaves the tracker.
+        var profile = _services.Activity.FindProfile(current.ApplicationId);
+
         return new Contracts.CurrentActivity(
             current.SessionId,
-            current.ApplicationId,
-            current.ApplicationName,
+            profile?.Id ?? current.ApplicationId,
+            profile?.Name ?? current.ApplicationName,
             current.Executable,
             current.WindowTitle,
             current.StartedAt,
@@ -224,6 +247,24 @@ internal sealed class RequestRouter
             range, SessionMerger.DefaultMinSessionSeconds, _services.Clock.UtcNowMs);
     }
 
+    /// <summary>
+    /// The first executable in the profile that yields an icon, most recently
+    /// seen first, so WhatsApp shows WhatsApp's icon rather than a helper's.
+    /// </summary>
+    private object GetApplicationIcon(JsonElement? parameters)
+    {
+        var query = Require<ApplicationIconQuery>(parameters);
+        foreach (var (executable, path, packageFamily) in _services.Activity.IconSources(query.ApplicationId))
+        {
+            if (Windows.AppIcons.DataUrl(executable, path, packageFamily) is { } dataUrl)
+            {
+                return new ApplicationIcon(query.ApplicationId, dataUrl);
+            }
+        }
+
+        return new ApplicationIcon(query.ApplicationId, null);
+    }
+
     private object GetApplicationDetail(JsonElement? parameters)
     {
         var request = Require<ApplicationDetailRequest>(parameters);
@@ -263,6 +304,15 @@ internal sealed class RequestRouter
                ?? throw new IpcException(IpcErrorCode.E_NOT_FOUND, "No such session.");
     }
 
+    private object GetBackground(JsonElement? parameters) =>
+        _services.Background.Get(
+            Require<BackgroundQuery>(parameters),
+            _services.Settings.Current.RecordBackgroundApps,
+            _services.Clock.UtcNowMs);
+
+    private object GetCoverage(JsonElement? parameters) =>
+        _services.Coverage.Get(Require<CoverageQuery>(parameters), _services.Clock.UtcNowMs);
+
     private object Search(JsonElement? parameters) =>
         _services.Search.Search(Require<SearchQueryParams>(parameters), _services.Clock.UtcNowMs);
 
@@ -272,7 +322,29 @@ internal sealed class RequestRouter
     {
         var patch = Require<SettingsPatch>(parameters);
 
-        return _services.Settings.Update(current => current with
+        // Checked against the settings as they are now. Turning recording up
+        // never needs the PIN; turning it down does.
+        var weakened = Protection.GuardedSettings.Weakenings(
+            Protection.GuardedSettings.From(_services.Settings.Current),
+            Protection.GuardedSettings.From(Apply(patch, _services.Settings.Current)));
+        if (weakened.Count > 0)
+        {
+            _services.Protection.Demand(string.Join(" and ", weakened));
+        }
+
+        var saved = _services.Settings.Update(current => Apply(patch, current));
+        foreach (var change in weakened)
+        {
+            _services.Protection.Record("setting-changed", $"Changed in the dashboard: {Capitalise(change)}.");
+        }
+
+        return saved;
+    }
+
+    private static string Capitalise(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
+
+    private static Contracts.Settings Apply(SettingsPatch patch, Contracts.Settings current) =>
+        current with
         {
             TrackingEnabled = patch.TrackingEnabled ?? current.TrackingEnabled,
             RecordWindowTitles = patch.RecordWindowTitles ?? current.RecordWindowTitles,
@@ -287,7 +359,33 @@ internal sealed class RequestRouter
             DeveloperLogging = patch.DeveloperLogging ?? current.DeveloperLogging,
             BackgroundNoticeShown = patch.BackgroundNoticeShown ?? current.BackgroundNoticeShown,
             OnboardingCompleted = patch.OnboardingCompleted ?? current.OnboardingCompleted,
-        });
+            ImportWindowsRecords = patch.ImportWindowsRecords ?? current.ImportWindowsRecords,
+            RecordBackgroundApps = patch.RecordBackgroundApps ?? current.RecordBackgroundApps,
+        };
+
+    private TrackerStatus Pause()
+    {
+        if (!_services.Settings.Current.TrackingEnabled)
+        {
+            return Status();
+        }
+
+        _services.Protection.Demand("pause recording");
+        var status = SetTracking(enabled: false);
+        _services.Protection.Record("paused", "Recording was paused from the dashboard.");
+        return status;
+    }
+
+    private TrackerStatus Resume()
+    {
+        if (_services.Settings.Current.TrackingEnabled)
+        {
+            return Status();
+        }
+
+        var status = SetTracking(enabled: true);
+        _services.Protection.Record("resumed", "Recording was resumed from the dashboard.");
+        return status;
     }
 
     /// <summary>
@@ -316,11 +414,20 @@ internal sealed class RequestRouter
         var range = Require<DayRange>(parameters);
         ValidateRange(range.FromUtcMs, range.ToUtcMs);
 
-        return _services.Data.DeleteRange(range.FromUtcMs, range.ToUtcMs);
+        _services.Protection.Demand("delete history");
+        var result = _services.Data.DeleteRange(range.FromUtcMs, range.ToUtcMs);
+        _services.Protection.Record("deleted", "History for a period was deleted.", range.FromUtcMs, range.ToUtcMs);
+        return result;
     }
 
-    private object DeleteApplication(JsonElement? parameters) =>
-        _services.Data.DeleteApplication(Require<ApplicationRequest>(parameters).ApplicationId);
+    private object DeleteApplication(JsonElement? parameters)
+    {
+        var id = Require<ApplicationRequest>(parameters).ApplicationId;
+        _services.Protection.Demand("delete history");
+        var result = _services.Data.DeleteApplication(id);
+        _services.Protection.Record("deleted", "An application's history was deleted.");
+        return result;
+    }
 
     private object DeleteAll(JsonElement? parameters)
     {
@@ -335,7 +442,13 @@ internal sealed class RequestRouter
                 $"Deleting all history requires confirm = '{ContractInfo.DeleteAllConfirmation}'.");
         }
 
-        return _services.Data.DeleteEverything();
+        _services.Protection.Demand("delete all history");
+        var result = _services.Data.DeleteEverything();
+        _services.Protection.Record("deleted", "All history was deleted.");
+
+        // Icons show which applications were used, so they go with the history.
+        Windows.AppIcons.Forget();
+        return result;
     }
 
     private object Export(JsonElement? parameters)
@@ -412,6 +525,10 @@ internal sealed record SessionDetailRequest(long SessionId);
 
 internal sealed record DeleteAllRequest(string? Confirm);
 
+internal sealed record PinRequest(string? Pin);
+
+internal sealed record SecretRequest(string? Secret);
+
 internal sealed record ExportRequest(string? AbsolutePath, long? FromUtcMs, long? ToUtcMs);
 
 /// <summary>
@@ -432,4 +549,6 @@ internal sealed record SettingsPatch(
     ThemePreference? Theme,
     bool? DeveloperLogging,
     bool? BackgroundNoticeShown,
-    bool? OnboardingCompleted);
+    bool? OnboardingCompleted,
+    bool? ImportWindowsRecords = null,
+    bool? RecordBackgroundApps = null);

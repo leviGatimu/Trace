@@ -197,7 +197,7 @@ internal static class DumpCommand
 
     /// <summary>
     /// Timestamps are stored in UTC and shown in local time — the one place
-    /// this conversion belongs (DOCS/data and database.md §24).
+    /// this conversion belongs (DOCS/specs/data-and-database.md §24).
     /// </summary>
     private static string LocalTime(long utcMs) =>
         DateTimeOffset.FromUnixTimeMilliseconds(utcMs).ToLocalTime().ToString("MMM dd HH:mm:ss");

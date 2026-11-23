@@ -16,6 +16,8 @@ const SETTINGS: Settings = {
   clockFormat: 'TWENTY_FOUR_HOUR',
   theme: 'DARK',
   developerLogging: false,
+  importWindowsRecords: true,
+  recordBackgroundApps: false,
   backgroundNoticeShown: true,
   dataDirectory: 'C:\\Users\\test\\AppData\\Local\\Trace\\Data',
   onboardingCompleted: true,
@@ -55,30 +57,31 @@ function mount(overrides: Partial<Settings> = {}, calls: [string, unknown][] = [
  * Navigates via the sidebar link, by role: the nav item and the page heading
  * both read Settings, so matching on text alone is ambiguous.
  */
-async function gotoSettings() {
+async function gotoSettings(section?: string) {
   fireEvent.click(await screen.findByRole('link', { name: 'Settings' }));
+  if (section) {
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`^${section}`) }));
+  }
 }
 
 describe('settings, as the privacy centre', () => {
   it('states plainly what Trace never records', async () => {
     mount();
-    await gotoSettings();
+    await gotoSettings('Privacy');
 
     expect(await screen.findByText('Never recorded')).toBeDefined();
     expect(await screen.findByText('Keystrokes')).toBeDefined();
     expect(await screen.findByText('Screenshots')).toBeDefined();
-    expect(await screen.findByText('Clipboard contents')).toBeDefined();
+    expect(await screen.findByText('Clipboard')).toBeDefined();
   });
 
   it('says that pausing survives a restart, because it does', async () => {
-    // DOCS/Privacy.md §27. If the interface did not say so, the user would have
+    // DOCS/specs/privacy.md §27. If the interface did not say so, the user would have
     // no way to know without testing it.
-    mount();
+    mount({ trackingEnabled: false });
     await gotoSettings();
 
-    expect(
-      await screen.findByText(/stays paused until you resume it — including after restarting/),
-    ).toBeDefined();
+    expect(await screen.findByText(/This lasts until you resume, even after a restart/)).toBeDefined();
   });
 
   it('pauses through the tracker rather than by hiding anything', async () => {
@@ -86,37 +89,38 @@ describe('settings, as the privacy centre', () => {
     mount({}, calls);
 
     await gotoSettings();
-    fireEvent.click(await screen.findByRole('button', { name: 'Pause tracking' }));
+    // The page's own button, not the sidebar's: they share a name on purpose.
+    const buttons = await screen.findAllByRole('button', { name: /Pause recording/ });
+    fireEvent.click(buttons[buttons.length - 1]!);
 
     await waitFor(() => expect(calls.some(([method]) => method === 'tracking.pause')).toBe(true));
   });
 
   it('lists excluded applications and explains that nothing is written for them', async () => {
     mount();
-    await gotoSettings();
+    await gotoSettings('Excluded apps');
 
-    expect(await screen.findByText('1password.exe')).toBeDefined();
-    expect(
-      await screen.findByText(/nothing is written and nothing is hidden after the fact/),
-    ).toBeDefined();
+    expect((await screen.findAllByText('1password.exe')).length).toBeGreaterThan(0);
+    expect(await screen.findByText(/Nothing about them is written down/)).toBeDefined();
   });
 
   it('will not delete everything until the words are typed', async () => {
     const calls: [string, unknown][] = [];
     mount({}, calls);
 
-    await gotoSettings();
+    await gotoSettings('Your data');
     fireEvent.click(await screen.findByRole('button', { name: 'Delete everything' }));
 
-    // The confirmation panel appears, and the action is refused until confirmed.
-    expect(await screen.findByText('Delete your entire history?')).toBeDefined();
-
-    const confirm = await screen.findByRole('button', { name: 'Delete everything' });
-    fireEvent.click(confirm);
+    // The confirmation appears, and the action is refused until the words are typed.
+    const dialog = await screen.findByRole('alertdialog', { name: 'Delete your whole history?' });
+    const confirm = () =>
+      Array.from(dialog.querySelectorAll('button')).find((button) => button.textContent === 'Delete everything')!;
+    expect(confirm().hasAttribute('disabled')).toBe(true);
+    fireEvent.click(confirm());
     expect(calls.some(([method]) => method === 'data.deleteAll')).toBe(false);
 
-    fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'DELETE ALL' } });
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete everything' }));
+    fireEvent.change(dialog.querySelector('input')!, { target: { value: 'DELETE ALL' } });
+    fireEvent.click(confirm());
 
     await waitFor(() => expect(calls.some(([method]) => method === 'data.deleteAll')).toBe(true));
   });

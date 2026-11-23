@@ -18,13 +18,14 @@ import { bridge } from '@/services/trace';
 export function TitleBar() {
   return (
     <header
-      className="drag relative z-20 h-16 shrink-0 border-b border-hair titlebar"
+      className="drag relative z-20 h-[72px] shrink-0 titlebar"
       // The window title is drawn here, so the strip is the application banner.
       role="banner"
     >
-      <div className="grid h-full grid-cols-[1fr_minmax(0,460px)_1fr] items-center gap-4 pl-4 pr-3">
+      <div className="grid h-full grid-cols-[76px_minmax(0,300px)_1fr_auto] items-center gap-5 pr-4">
         <Brand />
         <Search />
+        <Today />
         <WindowControls />
       </div>
     </header>
@@ -35,11 +36,10 @@ export function TitleBar() {
 
 function Brand() {
   return (
-    <div className="flex min-w-0 items-center gap-2.5">
-      <span className="titlebar-mark flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] border border-hair-strong">
+    <div className="flex h-full items-center justify-center bg-rail" title="Trace">
+      <span className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-card">
         <Mark />
       </span>
-      <span className="truncate text-[14px] font-medium tracking-[0.01em] text-ink">Trace</span>
     </div>
   );
 }
@@ -79,8 +79,18 @@ function Search() {
       }
     };
 
+    // The sidebar's Search button asks for the same focus.
+    const onFocusRequest = () => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    };
+
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('trace:focus-search', onFocusRequest);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('trace:focus-search', onFocusRequest);
+    };
   }, []);
 
   function submit(event: FormEvent) {
@@ -91,13 +101,13 @@ function Search() {
       return;
     }
 
-    navigate(`/search?q=${encodeURIComponent(query)}`);
+    navigate(`/timeline?q=${encodeURIComponent(query)}`);
     inputRef.current?.blur();
   }
 
   return (
     <form onSubmit={submit} role="search">
-      <div className="titlebar-search no-drag group flex h-9 items-center gap-2.5 rounded-[10px] border border-hair px-3">
+      <div className="titlebar-search no-drag group flex h-11 items-center gap-2.5 rounded-[14px] bg-card px-4">
         <SearchIcon />
 
         <input
@@ -116,9 +126,9 @@ function Search() {
               inputRef.current?.blur();
             }
           }}
-          placeholder="Search anything..."
+          placeholder="Search"
           aria-label="Search your history"
-          className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-4"
+          className="min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink-3"
         />
 
         <kbd className="data pointer-events-none shrink-0 rounded-[5px] border border-hair bg-white/[0.04] px-1.5 py-0.5 text-[10.5px] leading-none text-ink-4 opacity-100 transition-opacity duration-200 group-focus-within:opacity-0">
@@ -127,6 +137,12 @@ function Search() {
       </div>
     </form>
   );
+}
+
+/** Today's date beside the search, as in the reference. */
+function Today() {
+  const today = new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  return <span className="truncate text-[13.5px] font-medium text-ink">Today, {today}</span>;
 }
 
 function SearchIcon() {
@@ -167,7 +183,7 @@ function WindowControls() {
   }, []);
 
   return (
-    <div className="no-drag flex items-center justify-end gap-1">
+    <div className="no-drag flex items-center justify-end gap-2">
       <CaptionButton label="Minimise" onClick={() => bridge.windowControls.minimize()}>
         <Glyph>
           <path d="M4 9h10" />
@@ -193,7 +209,7 @@ function WindowControls() {
       <CaptionButton
         label="Close"
         onClick={() => bridge.windowControls.close()}
-        className="caption-button-close ml-1 h-[38px] w-[38px] rounded-[12px]"
+        className="caption-button-close h-10 w-10 rounded-full"
       >
         <Glyph>
           <path d="M5.2 5.2 12.8 12.8" />
@@ -221,7 +237,7 @@ function CaptionButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`caption-button flex h-9 w-9 items-center justify-center rounded-[10px] focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-accent ${className}`}
+      className={`caption-button flex h-10 w-10 items-center justify-center rounded-full bg-card focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-accent ${className}`}
     >
       {children}
     </button>

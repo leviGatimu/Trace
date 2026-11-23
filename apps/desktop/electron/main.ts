@@ -14,6 +14,13 @@ const client = new TrackerClient();
 let mainWindow: BrowserWindow | null = null;
 let hasTriedStartingTracker = false;
 
+// A sandbox dashboard (TRACE_SANDBOX, development only) keeps its own profile,
+// so it neither shares the installed dashboard's single-instance lock nor its
+// stored window state, and both can run side by side.
+if (process.env.TRACE_SANDBOX) {
+  app.setPath('userData', path.join(process.env.TRACE_SANDBOX, 'dashboard'));
+}
+
 /**
  * Only one dashboard. A second launch — from the Start menu, or from the tray's
  * "Open Trace" — focuses the existing window instead of opening a rival copy.
@@ -82,7 +89,7 @@ async function start(): Promise<void> {
 /**
  * Closing the window quits the dashboard.
  *
- * DOCS/Windows Integration §9 requires that closing the window not stop
+ * DOCS/specs/windows-integration.md §9 requires that closing the window not stop
  * tracking — and it does not, because tracking is a different process
  * altogether. Since the tracker owns the tray icon, there is nothing for
  * Trace.exe to do in the background, so it exits rather than sitting in memory
@@ -291,7 +298,7 @@ function registerHandlers(): void {
 
 /**
  * Starts TraceTracker.exe, for the "Tracker unavailable / [Restart Tracker]"
- * state (DOCS/Windows Integration §21).
+ * state (DOCS/specs/windows-integration.md §21).
  *
  * Detached, so the tracker outlives the dashboard that started it — which is
  * the whole point of keeping them separate.

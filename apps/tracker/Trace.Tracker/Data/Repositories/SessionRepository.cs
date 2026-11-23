@@ -13,18 +13,24 @@ internal readonly record struct InterruptedSession(
 
 internal static class SessionRepository
 {
-    public static long Open(SqliteConnection connection, long applicationId, long startedAtUtcMs)
+    /// <param name="processId">
+    /// The process that owned the foreground window. Kept on the raw record so a
+    /// session can later be tied to that exact process, not just to the
+    /// application it was filed under.
+    /// </param>
+    public static long Open(SqliteConnection connection, long applicationId, long startedAtUtcMs, uint processId)
     {
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO sessions (application_id, started_at, ended_at, active_seconds, idle_seconds)
-            VALUES ($applicationId, $startedAt, NULL, 0, 0)
+            INSERT INTO sessions (application_id, started_at, ended_at, active_seconds, idle_seconds, process_id)
+            VALUES ($applicationId, $startedAt, NULL, 0, 0, $processId)
             RETURNING id;
             """;
 
         command.Parameters.AddWithValue("$applicationId", applicationId);
         command.Parameters.AddWithValue("$startedAt", startedAtUtcMs);
+        command.Parameters.AddWithValue("$processId", (long)processId);
 
         return (long)command.ExecuteScalar()!;
     }
@@ -119,7 +125,7 @@ internal static class SessionRepository
     /// <summary>
     /// Deletes sessions started in [from, to). Window sessions and events go
     /// with them by cascade — a real delete, never a hidden flag
-    /// (DOCS/Privacy.md §21).
+    /// (DOCS/specs/privacy.md §21).
     /// </summary>
     public static int DeleteRange(SqliteConnection connection, long fromUtcMs, long toUtcMs)
     {

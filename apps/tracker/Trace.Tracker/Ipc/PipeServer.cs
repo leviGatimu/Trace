@@ -41,14 +41,14 @@ internal sealed class PipeServer : IAsyncDisposable
 
     /// <summary>
     /// <c>Trace.&lt;SID&gt;</c>. Naming the pipe after the user makes the
-    /// per-user isolation of DOCS/Windows Integration §26 structural: two
+    /// per-user isolation of DOCS/specs/windows-integration.md §26 structural: two
     /// Windows accounts cannot even name each other's pipe by accident.
     /// </summary>
     public static string PipeNameForCurrentUser()
     {
         using var identity = WindowsIdentity.GetCurrent();
         var sid = identity.User?.Value ?? identity.Name.Replace('\\', '_');
-        return ContractInfo.PipeNamePrefix + sid;
+        return ContractInfo.PipeNamePrefix + sid + TraceSandbox.NameSuffix;
     }
 
     /// <summary>

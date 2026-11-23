@@ -11,7 +11,7 @@ namespace Trace.Tracker.Data;
 /// The destructive and take-my-data-elsewhere operations: delete and export.
 ///
 /// Privacy is not real if the user cannot remove their own history or take it
-/// with them (DOCS/Privacy.md §20-22). Deletion here is a real <c>DELETE</c> —
+/// with them (DOCS/specs/privacy.md §20-22). Deletion here is a real <c>DELETE</c> —
 /// the schema has no soft-delete column, so "hidden but retained" is not even
 /// representable.
 /// </summary>
@@ -39,6 +39,14 @@ internal sealed class DataOperations
             // user believed was complete.
             var sessions = SessionRepository.DeleteRange(connection, fromUtcMs, toUtcMs);
             var events = EventRepository.DeleteRange(connection, fromUtcMs, toUtcMs);
+            Coverage.WindowsRecordImport.DeleteRange(connection, fromUtcMs, toUtcMs);
+            using (var processes = connection.CreateCommand())
+            {
+                processes.CommandText = "DELETE FROM process_instances WHERE started_at >= $from AND started_at < $to;";
+                processes.Parameters.AddWithValue("$from", fromUtcMs);
+                processes.Parameters.AddWithValue("$to", toUtcMs);
+                processes.ExecuteNonQuery();
+            }
             var applications = ApplicationRepository.DeleteOrphans(connection);
 
             return new DeleteResult(sessions, 0, events, applications);
@@ -50,19 +58,41 @@ internal sealed class DataOperations
 
     /// <summary>
     /// Removes one application's history entirely — the second half of the
-    /// choice offered when an application is excluded (DOCS/Privacy.md §8).
+    /// choice offered when an application is excluded (DOCS/specs/privacy.md §8).
     /// </summary>
+    /// <param name="applicationId">
+    /// The application profile. Every executable recorded under it goes, so
+    /// deleting WhatsApp also deletes what was recorded as WhatsApp.Root.
+    /// </param>
     public DeleteResult DeleteApplication(long applicationId)
     {
         var result = _database.Write(connection =>
         {
-            var sessions = SessionRepository.DeleteForApplication(connection, applicationId);
+            using var lookup = connection.CreateCommand();
+            lookup.CommandText = "SELECT id FROM applications WHERE profile_id = $id;";
+            lookup.Parameters.AddWithValue("$id", applicationId);
+            var executableIds = new List<long>();
+            using (var reader = lookup.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    executableIds.Add(reader.GetInt64(0));
+                }
+            }
 
-            using var command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM applications WHERE id = $id;";
-            command.Parameters.AddWithValue("$id", applicationId);
-            var applications = command.ExecuteNonQuery();
+            var sessions = 0;
+            var applications = 0;
+            foreach (var executableId in executableIds)
+            {
+                sessions += SessionRepository.DeleteForApplication(connection, executableId);
 
+                using var command = connection.CreateCommand();
+                command.CommandText = "DELETE FROM applications WHERE id = $id;";
+                command.Parameters.AddWithValue("$id", executableId);
+                applications += command.ExecuteNonQuery();
+            }
+
+            ApplicationRepository.DeleteOrphanProfiles(connection);
             return new DeleteResult(sessions, 0, 0, applications);
         });
 
@@ -76,7 +106,7 @@ internal sealed class DataOperations
         {
             var counts = new Dictionary<string, int>();
 
-            foreach (var table in new[] { "events", "window_sessions", "sessions", "applications" })
+            foreach (var table in new[] { "events", "window_sessions", "sessions", "process_instances", "applications", "profiles", "windows_records" })
             {
                 using var command = connection.CreateCommand();
                 command.CommandText = $"DELETE FROM {table};";
@@ -126,7 +156,7 @@ internal sealed class DataOperations
     /// Writes the user's history to a JSON file.
     ///
     /// JSON rather than CSV because it can carry the full event structure
-    /// (DOCS/data and database.md §22), and streamed rather than serialised in
+    /// (DOCS/specs/data-and-database.md §22), and streamed rather than serialised in
     /// one piece because a multi-year history should not have to fit in memory
     /// to be exportable.
     /// </summary>

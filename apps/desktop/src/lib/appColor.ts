@@ -1,7 +1,7 @@
 /**
  * The colour an application is drawn in.
  *
- * Assigned by hashing the executable name, so Chrome is the same colour on
+ * Assigned by hashing the application name, so Chrome is the same colour on
  * every screen and in every session without anything being stored. A colour
  * that moved between runs would be worse than none, because the user would
  * learn it and then be misled by it.
@@ -20,14 +20,19 @@ const PALETTE = [
   '#7fb069', // moss
 ] as const;
 
-export function appColor(executable: string): string {
+/**
+ * The colour an application is drawn in everywhere. Keyed by the application's
+ * name, not an executable: WhatsApp.exe and WhatsApp.Root.exe are one WhatsApp
+ * and must be one colour.
+ */
+export function appColor(name: string): string {
   // FNV-1a over the name, then a final avalanche step. Without the avalanche,
-  // names sharing a suffix — and almost every one of these ends in ".exe" —
+  // names sharing a suffix (once, every one of these ended in ".exe")
   // land in neighbouring buckets.
   let hash = 0x811c9dc5;
 
-  for (let index = 0; index < executable.length; index++) {
-    hash ^= executable.charCodeAt(index);
+  for (let index = 0; index < name.length; index++) {
+    hash ^= name.charCodeAt(index);
     hash = Math.imul(hash, 0x01000193);
   }
 

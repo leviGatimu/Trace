@@ -180,7 +180,7 @@ public class IpcTests
 
         engine.AdvanceMinutes(30).ShutDown();
 
-        // The raw history keeps every transition, as DOCS/Tracking.md §F requires.
+        // The raw history keeps every transition, as DOCS/specs/tracking.md §F requires.
         Assert.True(trace.CountRows("sessions") >= 16);
 
         var router = NewRouter(trace);
@@ -618,9 +618,12 @@ public class IpcTests
 
     // -- helpers ------------------------------------------------------------
 
-    private static RequestRouter NewRouter(PersistenceHarness trace)
+    internal static RequestRouter NewRouter(
+        PersistenceHarness trace,
+        IClock? clockOverride = null,
+        Protection.ProtectionService? protection = null)
     {
-        var clock = SystemClock.Instance;
+        var clock = clockOverride ?? SystemClock.Instance;
 
         return new RequestRouter(new TrackerServices(
             new SessionEngine(trace.Gate, new ScriptedScreen()),
@@ -628,12 +631,16 @@ public class IpcTests
             trace.Settings,
             new ActivityQueries(trace.Database),
             new SearchQueries(trace.Database),
+            new Coverage.CoverageQueries(trace.Database),
+            new Processes.BackgroundQueries(trace.Database),
+            new Windows.SystemMonitor(() => new Dictionary<string, (long, string)>()),
             new DataOperations(trace.Database),
             clock,
             _ => { },
             () => "0.1.0-test",
             () => TraceDatabase.CurrentSchemaVersion,
-            () => clock.UtcNowMs));
+            () => clock.UtcNowMs,
+            protection ?? new Protection.ProtectionService(trace.Database, clock, new FakeAutoRestart(), iterations: 1_000)));
     }
 
     /// <summary>A range covering the scripted day, computed the way a client would.</summary>
@@ -643,7 +650,7 @@ public class IpcTests
         toUtcMs = engine.Now + 3_600_000,
     };
 
-    private static T Ok<T>(RequestRouter router, string method, object? parameters = null)
+    internal static T Ok<T>(RequestRouter router, string method, object? parameters = null)
     {
         var response = Call(router, method, parameters);
 
@@ -654,7 +661,7 @@ public class IpcTests
         return response.GetProperty("result").Deserialize<T>(ContractJson.Options)!;
     }
 
-    private static IpcError Error(RequestRouter router, string method, object? parameters = null)
+    internal static IpcError Error(RequestRouter router, string method, object? parameters = null)
     {
         var response = Call(router, method, parameters);
 

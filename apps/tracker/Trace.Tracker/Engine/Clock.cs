@@ -7,7 +7,7 @@ namespace Trace.Tracker.Engine;
 /// session engine across hours, midnight boundaries and DST transitions in
 /// milliseconds. Production uses <see cref="System"/>.
 ///
-/// Timestamps are UTC epoch milliseconds throughout (DOCS/data and database.md
+/// Timestamps are UTC epoch milliseconds throughout (DOCS/specs/data-and-database.md
 /// §24). Local time exists only in the UI.
 /// </summary>
 internal interface IClock

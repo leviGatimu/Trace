@@ -34,3 +34,6 @@ desktop.ini
 *.db-wal
 *.db-shm
 trace-export-*.json
+
+# Screens of the owner's real history (window titles, searches). Never public.
+DOCS/images/real-captures/

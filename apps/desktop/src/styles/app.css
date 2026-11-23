@@ -1,68 +1,68 @@
 @import 'tailwindcss';
 
 /*
-  Trace — a recorder, not a dashboard.
+  Trace 2.0: an instrument for reading your own machine's record.
 
-  The product's subject is time: sessions with a start, an end and a duration.
-  Its vernacular is the log and the chart recorder, so the interface is built
-  from a time axis, a monospaced data face and a lot of quiet space.
+  The product answers "what happened on this PC, and how sure can I be?", so
+  the one bold idea is the evidence system. Three marks mean the same thing on
+  every screen: a solid fill is Observed, an amber hatch is Inferred, a grey
+  dot field is Unknown. Everything else stays quiet so those marks carry.
 
-  The rule that matters most here: nothing is boxed. Structure comes from
-  alignment, vertical rhythm and type weight. A border is used only where two
-  regions genuinely meet — never to fence off a paragraph. Cards make unequal
-  content look equally important and turn a tool into a poster.
+  Ground is slate rather than black: long sessions of reading tables are
+  easier on a lifted dark, and the evidence colours keep their contrast.
 */
 @theme {
-  --color-canvas: #0b0c0f;
-  --color-rail: #08090b; /* the sidebar's ground, a shade below the canvas */
-  --color-lift: #14161a; /* hover and selection only */
-  --color-sunken: #0e1013;
+  /* Black ground, dark rounded cards, one white feature card. */
+  --color-canvas: #050506;
+  --color-rail: #111113;
+  --color-card: #18181b;
+  --color-card-2: #232327; /* pills, inputs and buttons inside cards */
+  --color-panel: #18181b;
+  --color-lift: #232327;
+  --color-select: #2c2c31;
+  --color-sunken: #101012;
 
-  /* One hairline weight. Used sparingly, and never to enclose. */
-  --color-hair: rgb(255 255 255 / 7%);
-  --color-hair-strong: rgb(255 255 255 / 13%);
+  --color-hair: rgb(255 255 255 / 6%);
+  --color-hair-strong: rgb(255 255 255 / 11%);
 
-  /*
-    Four steps of emphasis, not four shades of grey for their own sake. The
-    dimmest was #464c55, which fell below a readable contrast on this ground —
-    fine for a hairline, not for words anyone has to read.
-  */
-  --color-ink: #edeff2;
-  --color-ink-2: #b3bac4;
-  --color-ink-3: #8b939e;
-  --color-ink-4: #6b737d;
+  --color-ink: #f5f5f7;
+  --color-ink-2: #c9c9ce;
+  --color-ink-3: #8e8e95;
+  --color-ink-4: #66666d;
 
-  --color-accent: #6e9bff;
+  --color-accent: #2f6bff;
+  --color-chart: #5b8cff;
 
-  /*
-    Applications are told apart by hue, so the day ribbon can be read at a
-    glance. Muted and desaturated on purpose — eight saturated colours side by
-    side is a chart, and this needs to look like a record.
-  */
-  --color-app-1: #6e9bff;
-  --color-app-2: #e0a458;
-  --color-app-3: #5fb3a1;
-  --color-app-4: #c77dbb;
-  --color-app-5: #e0736b;
-  --color-app-6: #8c8fe0;
-  --color-app-7: #7fb069;
-  --color-app-8: #d99ac0;
+  --color-mint: #7ee2a8;
+  --color-coral: #ff6b6b;
+  --color-peach: #f4a06b;
+  --color-butter: #f6dc7c;
+  --color-lilac: #8ea7ff;
 
-  --color-positive: #5fb3a1;
-  --color-warning: #e0a458;
-  --color-danger: #e0736b;
+  /* Evidence, in the same pastel family. */
+  --color-observed: #7ee2a8;
+  --color-inferred: #f4a06b;
+  --color-unknown: #66666d;
 
-  /*
-    Windows' own optical sizes. Display is drawn for large text and Text for
-    small — most applications never use the distinction, and using it properly
-    is what makes a Windows tool look like it belongs on Windows.
-  */
-  --font-display: 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
-  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'Cascadia Mono', 'Cascadia Code', Consolas, ui-monospace, monospace;
+  --color-app-1: #5b8cff;
+  --color-app-2: #f4a06b;
+  --color-app-3: #7ee2a8;
+  --color-app-4: #f6dc7c;
+  --color-app-5: #ff6b6b;
+  --color-app-6: #b39dff;
+  --color-app-7: #5fd0e0;
+  --color-app-8: #ff9fcf;
 
-  --radius-sm: 3px;
-  --radius-md: 5px;
+  --color-positive: #7ee2a8;
+  --color-warning: #f4a06b;
+  --color-danger: #ff6b6b;
+
+  --font-display: 'Outfit', 'Segoe UI', system-ui, sans-serif;
+  --font-sans: 'Outfit', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Outfit', 'Segoe UI', system-ui, sans-serif;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
 }
 
 @layer base {
@@ -81,8 +81,8 @@
       someone reads every day has to be comfortable at arm's length, and 13px
       grey-on-black asks too much of anyone who is not looking closely.
     */
-    font-size: 15px;
-    line-height: 1.55;
+    font-size: 14px;
+    line-height: 1.45;
     overscroll-behavior: none;
     user-select: none;
     -webkit-font-smoothing: antialiased;
@@ -129,29 +129,61 @@
     is most of what this product is for.
   */
   .data {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-variant-numeric: tabular-nums;
-    /* Slightly under the body size because a mono face reads larger at the
-       same nominal size, not because these numbers matter less. */
-    font-size: 13.5px;
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
   }
 
-  /* Section markers. Wide-tracked and quiet — they label, they do not fence. */
+  /* Section labels: sentence case, set by weight rather than shouting. */
   .eyebrow {
     font-family: var(--font-sans);
-    font-size: 11.5px;
+    font-size: 12.5px;
     font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
     color: var(--color-ink-3);
   }
 
   .display {
     font-family: var(--font-display);
-    font-weight: 300;
+    font-weight: 500;
     letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
+  }
+
+  /*
+    The evidence marks. Patterns, not just colours, so the three states stay
+    apart for anyone who does not see the hues, and in a screenshot.
+  */
+  .ev-observed {
+    background: var(--color-chart);
+  }
+
+  .ev-inferred {
+    background: repeating-linear-gradient(
+      -45deg,
+      rgb(244 160 107 / 80%) 0 3px,
+      rgb(244 160 107 / 20%) 3px 6px
+    );
+  }
+
+  .ev-unknown {
+    background-color: rgb(93 102 117 / 18%);
+    background-image: radial-gradient(rgb(138 149 165 / 55%) 0.8px, transparent 1px);
+    background-size: 5px 5px;
+  }
+
+  /* Windows says off, asleep or signed out: observed, but nothing to record. */
+  .ev-dormant {
+    background: repeating-linear-gradient(
+      90deg,
+      rgb(255 255 255 / 14%) 0 1px,
+      transparent 1px 4px
+    );
+  }
+
+  /* Rows that can be selected with the keyboard. */
+  .row-select[aria-selected='true'] {
+    background: var(--color-select);
+    box-shadow: inset 2px 0 0 var(--color-accent);
   }
 
   /* The live indicator. */
@@ -248,10 +280,7 @@
   rejected for this product (see createWindow in electron/main.ts).
 */
 .titlebar {
-  background: linear-gradient(180deg, #15181e 0%, #0d0f13 100%);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 6%),
-    0 1px 0 rgb(0 0 0 / 45%);
+  background: var(--color-canvas);
 }
 
 /*
@@ -263,7 +292,7 @@
   background: linear-gradient(160deg, rgb(255 255 255 / 7%), rgb(255 255 255 / 2%));
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 9%),
-    0 0 22px -8px rgb(110 155 255 / 55%);
+    0 0 22px -8px rgb(138 169 255 / 40%);
 }
 
 /*
@@ -272,7 +301,7 @@
   different effects.
 */
 .titlebar-search {
-  background: rgb(255 255 255 / 3.5%);
+  background: var(--color-card);
   transition:
     background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -291,16 +320,12 @@
 }
 
 .titlebar-search:hover {
-  background: rgb(255 255 255 / 5.5%);
-  border-color: var(--color-hair-strong);
+  background: var(--color-card-2);
 }
 
 .titlebar-search:focus-within {
-  background: rgb(255 255 255 / 6.5%);
-  border-color: rgb(110 155 255 / 45%);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 6%),
-    0 0 0 3px rgb(110 155 255 / 10%);
+  background: var(--color-card-2);
+  box-shadow: 0 0 0 2px rgb(47 107 255 / 45%);
 }
 
 /*
@@ -308,7 +333,7 @@
   press; 60ms out and 180ms back means it feels immediate but recovers softly.
 */
 .caption-button {
-  color: var(--color-ink-3);
+  color: var(--color-ink-2);
   transition:
     background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
     color 180ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -316,7 +341,7 @@
 }
 
 .caption-button:hover {
-  background: rgb(255 255 255 / 7%);
+  background: var(--color-card-2);
   color: var(--color-ink);
 }
 
@@ -337,4 +362,439 @@
 
 .caption-button-close:active {
   background: rgb(224 115 107 / 24%);
+}
+
+/* A soft wave drawn in the corner of a card, as in the reference. */
+.card-wave {
+  background-image:
+    repeating-radial-gradient(circle at 120% -20%, transparent 0 9px, rgb(255 255 255 / 5%) 9px 10px);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Motion                                                            */
+/*                                                                    */
+/*  Everything here is switched off by the prefers-reduced-motion     */
+/*  rule above, which shortens every animation to nothing.            */
+/* ------------------------------------------------------------------ */
+
+/* Cards arrive one after another. Set --i on each for its place. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+/* Chart bars grow up from the axis. */
+@keyframes grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.grow {
+  transform-origin: bottom;
+  animation: grow 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(150ms + var(--i, 0) * 22ms);
+}
+
+/* Small things pop into place: calendar tiles, pills. */
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+.pop {
+  animation: pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: calc(var(--i, 0) * 14ms);
+}
+
+/* Table rows slide in. */
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+
+.slide-in {
+  animation: slide-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 18ms);
+}
+
+/* A clickable card lifts under the pointer. */
+.lift {
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 200ms;
+}
+
+.lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 45%);
+}
+
+/* The corner arrow turns to point the way it goes. */
+.arrow-turn svg {
+  transition: transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.arrow-turn:hover svg,
+.group:hover .arrow-turn svg {
+  transform: rotate(45deg) scale(1.1);
+}
+
+/* Navigation icons. */
+.nav-icon svg {
+  transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.nav-icon:hover svg {
+  transform: scale(1.15) rotate(-6deg);
+}
+
+@keyframes nav-pop {
+  0% {
+    transform: scale(0.7);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.nav-icon[aria-current='page'] svg {
+  animation: nav-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* A clock whose hand keeps going round. */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.clock-hand {
+  transform-origin: 8px 8px;
+  animation: spin 6s linear infinite;
+}
+
+.clock-hand-fast {
+  transform-origin: 8px 8px;
+  animation: spin 1.5s steps(12) infinite;
+}
+
+/* A soft breathing glow behind something live. */
+@keyframes breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(126 226 168 / 0%);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgb(126 226 168 / 18%);
+  }
+}
+
+.breathe {
+  animation: breathe 2.6s ease-in-out infinite;
+}
+
+/* Sidebar labels slide out on hover. */
+.rail-tip {
+  opacity: 0;
+  transform: translateX(-6px);
+  transition:
+    opacity 160ms,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.group:hover > .rail-tip,
+.group:focus-visible > .rail-tip {
+  opacity: 1;
+  transform: none;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Opening sequence (components/Splash.tsx), about 2.9 s             */
+/* ------------------------------------------------------------------ */
+
+.splash-glow {
+  background: radial-gradient(circle, rgb(47 107 255 / 28%) 0%, rgb(47 107 255 / 0%) 65%);
+  animation:
+    splash-fade-in 700ms ease-out both,
+    splash-breathe 2.4s ease-in-out 700ms infinite;
+}
+
+@keyframes splash-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.75;
+  }
+}
+
+@keyframes splash-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The point of light that starts recording. */
+.splash-spark {
+  background: #8fb0ff;
+  box-shadow:
+    0 0 12px 4px rgb(47 107 255 / 80%),
+    0 0 40px 12px rgb(47 107 255 / 35%);
+  animation: splash-spark 1300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes splash-spark {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  20% {
+    transform: translate(-50%, -50%) scale(1.4);
+    opacity: 1;
+  }
+  35% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0;
+  }
+}
+
+/* The line drawn out to both sides. */
+.splash-line {
+  background: linear-gradient(90deg, transparent, rgb(91 140 255 / 90%) 20%, rgb(143 176 255) 50%, rgb(91 140 255 / 90%) 80%, transparent);
+  box-shadow: 0 0 14px rgb(47 107 255 / 60%);
+  transform-origin: center;
+  animation: splash-line 1500ms cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+@keyframes splash-line {
+  0%,
+  15% {
+    transform: translateY(-50%) scaleX(0);
+    opacity: 1;
+  }
+  60% {
+    transform: translateY(-50%) scaleX(1);
+    opacity: 1;
+  }
+  85% {
+    transform: translateY(-50%) scaleX(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-50%) scaleX(0.4);
+    opacity: 0;
+  }
+}
+
+/* Activity pulsing along the line, from the centre outwards. */
+.splash-pulse {
+  background: linear-gradient(180deg, #8fb0ff, #2f6bff);
+  box-shadow: 0 0 10px rgb(47 107 255 / 55%);
+  transform-origin: center;
+  animation: splash-pulse 1450ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: calc(420ms + var(--i, 0) * 45ms);
+}
+
+@keyframes splash-pulse {
+  0% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  30% {
+    transform: scaleY(1.15);
+    opacity: 1;
+  }
+  45% {
+    transform: scaleY(0.7);
+  }
+  60% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+}
+
+.splash-trace {
+  animation: splash-trace-out 1900ms ease-in both;
+}
+
+@keyframes splash-trace-out {
+  0%,
+  70% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+  }
+}
+
+/* The mark lands piece by piece: bar, stem, then the dot with a bounce. */
+.splash-mark {
+  overflow: visible;
+  filter: drop-shadow(0 10px 30px rgb(47 107 255 / 25%));
+}
+
+.splash-bar,
+.splash-stem,
+.splash-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.splash-bar {
+  animation: splash-drop 620ms cubic-bezier(0.34, 1.56, 0.64, 1) 1250ms both;
+}
+
+.splash-stem {
+  animation: splash-grow 520ms cubic-bezier(0.34, 1.56, 0.64, 1) 1400ms both;
+}
+
+.splash-dot {
+  animation:
+    splash-bounce 760ms cubic-bezier(0.34, 1.56, 0.64, 1) 1550ms both,
+    splash-dot-glow 1.6s ease-in-out 2300ms infinite;
+}
+
+@keyframes splash-drop {
+  from {
+    transform: translateY(-14px) scaleX(0.3);
+    opacity: 0;
+  }
+}
+
+@keyframes splash-grow {
+  from {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+}
+
+@keyframes splash-bounce {
+  0% {
+    transform: translateY(-22px) scale(0.4);
+    opacity: 0;
+  }
+  55% {
+    transform: translateY(0) scale(1.25);
+    opacity: 1;
+  }
+  75% {
+    transform: translateY(-2px) scale(0.92);
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes splash-dot-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 rgb(47 107 255 / 0%));
+  }
+  50% {
+    filter: drop-shadow(0 0 3px rgb(47 107 255 / 90%));
+  }
+}
+
+/* The name rises in, letter by letter. */
+.splash-letter {
+  animation: splash-rise 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(1700ms + var(--i, 0) * 65ms);
+}
+
+@keyframes splash-rise {
+  from {
+    transform: translateY(110%);
+    opacity: 0;
+  }
+}
+
+.splash-tagline {
+  animation: splash-rise-soft 700ms cubic-bezier(0.22, 1, 0.36, 1) 2100ms both;
+}
+
+.splash-hint {
+  animation: splash-fade-in 600ms ease-out 1500ms both;
+}
+
+@keyframes splash-rise-soft {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+
+/* Leaving: the whole scene lifts and dissolves into the app. */
+.splash-leave {
+  animation: splash-leave 650ms cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+@keyframes splash-leave {
+  to {
+    opacity: 0;
+    transform: scale(1.06);
+    filter: blur(6px);
+  }
+}
+
+/* --- Protection ----------------------------------------------------------- */
+
+/* A wrong PIN shakes the field once. */
+@keyframes pin-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-9px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(3px); }
+}
+
+/* The shield on the Protection page pulses slowly while protection is on. */
+@keyframes shield-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(17 17 20 / 35%); }
+  50% { box-shadow: 0 0 0 10px rgb(17 17 20 / 0%); }
+}
+
+.shield-on {
+  animation: shield-pulse 2.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shield-on {
+    animation: none;
+  }
 }

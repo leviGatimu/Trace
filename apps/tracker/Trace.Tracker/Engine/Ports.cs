@@ -19,7 +19,7 @@ internal interface IWindowResolver
 
     /// <summary>
     /// The window in front right now. Used after unlock and after resume, where
-    /// DOCS/Tracking.md §I and §J require re-reading rather than assuming the
+    /// DOCS/specs/tracking.md §I and §J require re-reading rather than assuming the
     /// previous application is still active.
     /// </summary>
     IntPtr GetForegroundWindow();
@@ -54,7 +54,7 @@ internal sealed record CurrentActivitySnapshot(
 ///
 /// In production this is <c>PrivacyGate</c>, which owns the repositories
 /// privately. The engine therefore cannot reach a repository even by accident,
-/// which is how DOCS/Privacy.md §7 ("exclusion happens BEFORE recording") is
+/// which is how DOCS/specs/privacy.md §7 ("exclusion happens BEFORE recording") is
 /// enforced by the compiler rather than by discipline.
 ///
 /// The write methods return null when the gate refuses. The engine treats that
@@ -65,7 +65,7 @@ internal interface IActivitySink
 {
     /// <summary>
     /// True when this executable must not be recorded: a user exclusion, or
-    /// Trace's own binaries (DOCS/Tracking.md §Q).
+    /// Trace's own binaries (DOCS/specs/tracking.md §Q).
     /// </summary>
     bool IsApplicationExcluded(string executable);
 
@@ -73,7 +73,7 @@ internal interface IActivitySink
     /// When false, no window sessions are created at all.
     ///
     /// Storing rows with NULL titles would also satisfy the letter of
-    /// DOCS/Privacy.md §28, but the principle at the top of that document is
+    /// DOCS/specs/privacy.md §28, but the principle at the top of that document is
     /// that Trace does not collect what it does not need. With titles off, the
     /// granular window history has no purpose, so it is not written.
     /// </summary>
@@ -110,7 +110,7 @@ internal interface IActivitySink
 /// This is the anchor crash recovery uses: an unclean exit closes the open
 /// session at <see cref="AtUtcMs"/>, which bounds over-attribution to one
 /// heartbeat interval and never invents time
-/// (DOCS/data and database.md §14, §28).
+/// (DOCS/specs/data-and-database.md §14, §28).
 ///
 /// <see cref="ActiveSeconds"/> and <see cref="IdleSeconds"/> carry the open
 /// session's accounting as of this moment. Without them, recovering an

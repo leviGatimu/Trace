@@ -42,7 +42,9 @@ export type IpcErrorCode =
   | 'E_PATH'
   | 'E_DEGRADED'
   | 'E_BUSY'
-  | 'E_INTERNAL';
+  | 'E_INTERNAL'
+  /** The action needs the Trace PIN. Unlock with protection.unlock, then retry. */
+  | 'E_LOCKED';
 
 export interface IpcPush<D = unknown> {
   event: PushEvent;
@@ -61,7 +63,7 @@ export type PushEvent =
 
 /**
  * Why a session ended. Mirrors the `sessions.end_reason` column.
- * `DOCS/data and database.md` §5.
+ * `DOCS/specs/data-and-database.md` §5.
  */
 export type EndReason =
   | 'APP_SWITCH'
@@ -118,8 +120,12 @@ export type IpcMethod =
   | 'analytics.getSummary'
   | 'applications.list'
   | 'applications.getDetail'
+  | 'applications.getIcon'
   | 'sessions.getDetail'
   | 'search.query'
+  | 'coverage.get'
+  | 'background.get'
+  | 'system.live'
   | 'settings.get'
   | 'settings.update'
   | 'tracking.pause'
@@ -127,7 +133,13 @@ export type IpcMethod =
   | 'data.deleteRange'
   | 'data.deleteApplication'
   | 'data.deleteAll'
-  | 'data.export';
+  | 'data.export'
+  | 'protection.status'
+  | 'protection.setup'
+  | 'protection.unlock'
+  | 'protection.lock'
+  | 'protection.disable'
+  | 'protection.log';
 
 /** Every method in the contract, for surface tests on both sides. */
 export const IPC_METHODS: readonly IpcMethod[] = [
@@ -140,8 +152,12 @@ export const IPC_METHODS: readonly IpcMethod[] = [
   'analytics.getSummary',
   'applications.list',
   'applications.getDetail',
+  'applications.getIcon',
   'sessions.getDetail',
   'search.query',
+  'coverage.get',
+  'background.get',
+  'system.live',
   'settings.get',
   'settings.update',
   'tracking.pause',
@@ -150,6 +166,12 @@ export const IPC_METHODS: readonly IpcMethod[] = [
   'data.deleteApplication',
   'data.deleteAll',
   'data.export',
+  'protection.status',
+  'protection.setup',
+  'protection.unlock',
+  'protection.lock',
+  'protection.disable',
+  'protection.log',
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -287,7 +309,7 @@ export interface LongestSession {
 export interface TimelineQuery extends DayRange {
   /**
    * Sessions shorter than this are merged into surrounding activity for
-   * display. `DOCS/Tracking.md` §F. Raw rows are never altered — this is a
+   * display. `DOCS/specs/tracking.md` §F. Raw rows are never altered — this is a
    * read-model rule, applied here so the UI never implements it.
    * Default 5.
    */
@@ -371,6 +393,42 @@ export interface ApplicationDetail {
   usage: ApplicationUsage;
   sessions: ApplicationSessionRow[];
   windows: WindowRollupRow[];
+  /** The registry's category, or null when Trace does not know one. */
+  category: string | null;
+  /** Every executable recorded under this application, most recently seen first. */
+  aliases: ApplicationAlias[];
+}
+
+/**
+ * How an executable came to belong to an application:
+ * - `package`: it is installed inside the application's package (verified).
+ * - `executable-name`: its filename matches Trace's registry (inferred).
+ * - `self`: nothing links it to anything else.
+ */
+export type ProfileLink = 'package' | 'executable-name' | 'self';
+
+/** The application's real icon as a PNG data URL, or null when none could be read. */
+export interface ApplicationIcon {
+  applicationId: number;
+  dataUrl: string | null;
+}
+
+/** One observed executable behind an application. */
+export interface ApplicationAlias {
+  /** The raw `applications` row id: the executable as recorded. */
+  executableId: number;
+  executable: string;
+  /** The name this executable alone would carry. */
+  name: string;
+  path: string | null;
+  packageFamily: string | null;
+  /** Where `name` came from; null when recorded by Trace 0.1. */
+  identitySource: 'registry' | 'package' | 'version-info' | 'filename' | null;
+  link: ProfileLink;
+  firstSeen: number;
+  lastSeen: number;
+  /** Stored (unmerged) foreground spans recorded for this executable. */
+  sessionCount: number;
 }
 
 export interface ApplicationUsage {
@@ -411,6 +469,10 @@ export interface SessionDetail {
   endReason: EndReason | null;
   windowSessions: WindowSessionRow[];
   events: EventRow[];
+  /** The process that owned the window; null for history recorded before Trace 2.0. */
+  processId: number | null;
+  /** Null when the process could not be opened (protected or elevated). */
+  executablePath: string | null;
 }
 
 export interface WindowSessionRow {
@@ -429,6 +491,204 @@ export interface EventRow {
   sessionId: number | null;
   /** Parsed JSON metadata, or null. */
   metadata: Record<string, unknown> | null;
+}
+
+// ---------------------------------------------------------------------------
+// coverage
+// ---------------------------------------------------------------------------
+
+export type CoverageQuery = DayRange;
+
+/** Every moment of a range, explained: recorded, or a labelled gap. */
+export interface CoverageReport {
+  fromUtcMs: number;
+  toUtcMs: number;
+  /** Trace's first recorded session. Nothing before it is Trace's. */
+  traceHistoryFrom: number | null;
+  /** The oldest Windows record held. Before it, gaps are unknown. */
+  windowsRecordsFrom: number | null;
+  segments: CoverageSegment[];
+}
+
+/**
+ * Trace's own records: `recorded`, `locked`, `paused`, `asleep`.
+ * Gaps: `powered-off`, `asleep`, `signed-out` (from Windows records),
+ * `trace-stopped` (inferred: Trace was not running),
+ * `unrecorded-window` (inferred: Trace was running, but the window in front was
+ * an excluded or protected one it does not record), `unknown`,
+ * `before-trace` (earlier than Trace's first record).
+ */
+export type CoverageKind =
+  | 'recorded'
+  | 'locked'
+  | 'paused'
+  | 'asleep'
+  | 'powered-off'
+  | 'signed-out'
+  | 'trace-stopped'
+  | 'unrecorded-window'
+  | 'unknown'
+  | 'before-trace';
+
+export type EvidenceLabel = 'observed' | 'inferred' | 'unknown';
+
+export interface CoverageSegment {
+  kind: CoverageKind;
+  startedAt: number;
+  /** Null while still running. */
+  endedAt: number | null;
+  evidence: EvidenceLabel;
+  source: 'trace' | 'windows' | 'none';
+  /** The start is reconstructed (Trace's last heartbeat before it stopped unexpectedly). */
+  startEstimated: boolean;
+  /** Records this rests on: `S-` span, `W-` window, `E-` event, `WR-` Windows record. */
+  evidenceIds: string[];
+  explanation: string;
+}
+
+// ---------------------------------------------------------------------------
+// background apps
+// ---------------------------------------------------------------------------
+
+export type BackgroundQuery = DayRange;
+
+export interface BackgroundReport {
+  /** Whether "Record background apps" is on. */
+  enabled: boolean;
+  /** The first process ever recorded, or null. */
+  recordingSince: number | null;
+  runningNow: number;
+  apps: BackgroundApp[];
+}
+
+export interface BackgroundApp {
+  /** The application profile, as everywhere else. */
+  applicationId: number;
+  name: string;
+  category: string | null;
+  instanceCount: number;
+  runningNow: number;
+  /** Time at least one of its processes ran in the range. */
+  runningSeconds: number;
+  /** Time it was in front; the rest of runningSeconds was background. */
+  foregroundSeconds: number;
+  firstStartedAt: number;
+  lastSeenAt: number;
+  instances: ProcessInstanceRow[];
+}
+
+export interface ProcessInstanceRow {
+  instanceId: number;
+  pid: number;
+  parentPid: number | null;
+  parentExecutable: string | null;
+  executable: string;
+  path: string | null;
+  startedAt: number;
+  /** True when the start is Windows' own creation time; false when it is the first check that saw it. */
+  startObserved: boolean;
+  endedAt: number | null;
+  /** running, ended (seen to end, to within 2 seconds), or unknown (recording stopped first). */
+  endState: 'running' | 'ended' | 'unknown';
+  lastSeenAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// protection (the Trace PIN, auto-restart and the tamper log)
+// ---------------------------------------------------------------------------
+
+export interface ProtectionStatus {
+  /** A PIN is set, so pausing, quitting and weakening settings ask for it. */
+  enabled: boolean;
+  /** While in the future, guarded actions are allowed without the PIN. */
+  unlockedUntilUtcMs: number | null;
+  /** After too many wrong tries, no PIN is checked until then. */
+  lockedOutUntilUtcMs: number | null;
+  failedAttempts: number;
+  /** The scheduled task that restarts Trace is installed and switched on. */
+  autoRestart: boolean;
+}
+
+export interface ProtectionSetupResult {
+  /** Shown once. Only its hash is kept. */
+  recoveryCode: string;
+  status: ProtectionStatus;
+}
+
+export type TamperKind =
+  | 'unexpected-stop'
+  | 'quit'
+  | 'paused'
+  | 'resumed'
+  | 'setting-changed'
+  | 'deleted'
+  | 'wrong-pin'
+  | 'locked-out'
+  | 'recovery-used'
+  | 'settings-edited'
+  | 'settings-unreadable'
+  | 'auto-restart-repaired'
+  | 'updated'
+  | 'protection-on'
+  | 'protection-off'
+  | 'pin-changed'
+  | 'new-history';
+
+export interface TamperEntry {
+  id: number;
+  atUtcMs: number;
+  kind: TamperKind;
+  detail: string;
+  /** For a stop: when Trace was last known to be running. */
+  fromUtcMs: number | null;
+  /** For a stop: when it was running again. */
+  toUtcMs: number | null;
+}
+
+// ---------------------------------------------------------------------------
+// system (live only; nothing here is stored)
+// ---------------------------------------------------------------------------
+
+export interface SystemLive {
+  atUtcMs: number;
+  cpu: { name: string; logicalCores: number; usagePercent: number };
+  memory: { totalBytes: number; usedBytes: number };
+  /** Null when the machine reports no graphics adapter. */
+  gpu: { names: string[]; usagePercent: number; dedicatedUsedBytes: number | null; dedicatedTotalBytes: number | null } | null;
+  devices: ConnectedDevice[];
+  processCount: number;
+  processes: LiveProcess[];
+}
+
+export type DeviceKind =
+  | 'keyboard'
+  | 'mouse'
+  | 'speaker'
+  | 'microphone'
+  | 'camera'
+  | 'display'
+  | 'storage'
+  | 'phone'
+  | 'bluetooth'
+  | 'printer'
+  | 'controller';
+
+export interface ConnectedDevice {
+  name: string;
+  kind: DeviceKind;
+  connection: 'USB' | 'Bluetooth' | 'Built-in';
+  manufacturer: string | null;
+}
+
+/** Processes grouped by program file. */
+export interface LiveProcess {
+  executable: string;
+  name: string;
+  /** The application profile, when Trace has seen this program before. */
+  applicationId: number | null;
+  count: number;
+  cpuPercent: number;
+  memoryBytes: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -451,7 +711,8 @@ export interface SearchResult {
   executable: string;
   /** The window title that matched, or null when the match was on app name. */
   matchedTitle: string | null;
-  matchedOn: 'title' | 'application';
+  /** `evidence`: the search text was an evidence id (S-, W-, E-) and this is its session. */
+  matchedOn: 'title' | 'application' | 'evidence';
   startedAt: number;
   endedAt: number | null;
   durationSeconds: number;
@@ -515,6 +776,10 @@ export interface Settings {
   // Read-only, reported by the tracker
   readonly dataDirectory: string;
   readonly onboardingCompleted: boolean;
+  /** Copy power, boot and sign-in records from the Windows System log (read-only). */
+  importWindowsRecords: boolean;
+  /** Record every process in this session, including ones never in front (opt-in). */
+  recordBackgroundApps: boolean;
 }
 
 /** Only these keys may be sent to `settings.update`. */

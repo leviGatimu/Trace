@@ -10,7 +10,7 @@ namespace Trace.Tracker.Engine;
 /// IPC handlers) call <see cref="Post"/> from whatever thread they happen to be
 /// on. One consumer drains the queue in order. That is what makes the engine
 /// single-threaded and therefore lock-free, and it is what lets the entire
-/// DOCS/Tracking.md rules table be tested by feeding a scripted signal list with
+/// DOCS/specs/tracking.md rules table be tested by feeding a scripted signal list with
 /// no Windows involved.
 ///
 /// The queue is unbounded but ordered. Unbounded is safe here because signals

@@ -13,7 +13,7 @@ namespace Trace.Tracker.Engine;
 ///   * the engine is single-threaded by construction, so it needs no locks and
 ///     transitions can never interleave;
 ///   * the engine can be driven entirely by a scripted list of signals, which is
-///     how the DOCS/Tracking.md rules table is unit-tested without Windows.
+///     how the DOCS/specs/tracking.md rules table is unit-tested without Windows.
 ///
 /// <c>AtUtcMs</c> is stamped by the producer, not the consumer, so queue latency
 /// can never shift a recorded timestamp.
@@ -28,7 +28,7 @@ internal sealed record ForegroundChanged(long AtUtcMs, IntPtr Hwnd) : Signal(AtU
 /// <summary>
 /// The title of the current foreground window changed without the window
 /// changing — a browser tab switch, an editor changing file. Drives window
-/// sessions (DOCS/Tracking.md §D).
+/// sessions (DOCS/specs/tracking.md §D).
 /// </summary>
 internal sealed record WindowTitleChanged(long AtUtcMs, IntPtr Hwnd) : Signal(AtUtcMs);
 
@@ -43,7 +43,7 @@ internal sealed record ForegroundProcessExited(long AtUtcMs, uint ProcessId) : S
 /// <paramref name="SinceUtcMs"/> is the moment of the user's last actual input,
 /// not the moment the poll noticed. Idle must be backdated: recording it from
 /// detection time would credit every idle period with a full threshold's worth
-/// of fabricated active time, which DOCS/data and database.md §28 forbids.
+/// of fabricated active time, which DOCS/specs/data-and-database.md §28 forbids.
 /// </summary>
 internal sealed record IdleStarted(long AtUtcMs, long SinceUtcMs) : Signal(AtUtcMs);
 
@@ -77,7 +77,7 @@ internal sealed record SettingsChanged(long AtUtcMs) : Signal(AtUtcMs);
 /// <summary>
 /// Periodic checkpoint. Persists tracker_state so an unclean exit can be
 /// recovered to a known-good boundary, bounding over-attribution to one
-/// heartbeat interval (DOCS/data and database.md §14).
+/// heartbeat interval (DOCS/specs/data-and-database.md §14).
 /// </summary>
 internal sealed record Heartbeat(long AtUtcMs) : Signal(AtUtcMs);
 

@@ -98,7 +98,7 @@ public class HardeningTests(ITestOutputHelper output)
     [Fact]
     public void A_corrupt_database_is_quarantined_rather_than_discarded()
     {
-        // DOCS/data and database.md: the damaged file is the user's history, and
+        // DOCS/specs/data-and-database.md: the damaged file is the user's history, and
         // some of it may be recoverable by hand. Deleting it silently would be
         // the one unforgivable failure.
         var directory = Path.Combine(Path.GetTempPath(), "trace-corrupt", Guid.NewGuid().ToString("N"));

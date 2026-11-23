@@ -45,21 +45,29 @@ describe('the calendar', () => {
     return requests;
   }
 
-  it('totals the month and labels the day, using figures it only formats', async () => {
+  it('labels the day with the figure the tracker computed', async () => {
     mount();
 
-    // 7,260 seconds, shown twice: once as the month's total, once on the day.
-    expect(await screen.findAllByText('2h 1m')).toHaveLength(2);
-    expect(await screen.findByText('1 day recorded')).toBeDefined();
+    // 7,260 seconds, formatted on the day's tile and named in its label.
+    expect((await screen.findAllByText('2h 1m')).length).toBeGreaterThan(0);
+    expect(await screen.findByTitle(/2h 1m in front/)).toBeDefined();
   });
 
-  it('opens a recorded day in the timeline, and leaves empty days unclickable', async () => {
+  it('opens a day in the timeline, and never offers a day that has not happened', async () => {
     const requests = mount();
 
-    const empty = await screen.findAllByTitle('Nothing recorded');
-    expect(empty.every((day) => day.hasAttribute('disabled'))).toBe(true);
+    // Days with nothing in front still open: their gaps are worth seeing.
+    // Only the future is out of reach.
+    const empty = await screen.findAllByTitle(/nothing recorded/);
+    const today = new Date();
+    for (const day of empty) {
+      const number = Number(day.textContent?.match(/^\d+/)?.[0]);
+      if (number > today.getDate() && day.getAttribute('aria-label')?.includes(today.toLocaleDateString(undefined, { month: 'long' }))) {
+        expect(day.hasAttribute('disabled')).toBe(true);
+      }
+    }
 
-    const recorded = await screen.findByTitle('2h 1m · 4 sessions');
+    const recorded = await screen.findByTitle(/2h 1m in front/);
     const asked = requests.find((r) => r.method === 'activity.getCalendar')!
       .params as CalendarQuery;
     const firstOfMonth = asked.dayStartsUtcMs.find(isFirstOfThisMonth);

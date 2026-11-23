@@ -9,7 +9,7 @@ internal static class Program
     /// Local\ scope makes the mutex per-session as well as per-user, which is
     /// what we want: one tracker per interactive Windows session.
     /// </summary>
-    private static string MutexName => $@"Local\Trace.Tracker.{CurrentUserSid()}";
+    private static string MutexName => $@"Local\Trace.Tracker.{CurrentUserSid()}{TraceSandbox.NameSuffix}";
 
     [STAThread]
     private static int Main(string[] args)
@@ -29,6 +29,13 @@ internal static class Program
             return DumpCommand.Run();
         }
 
+        // --identities reads too: it shows what the current naming rules would
+        // call each recorded application, and changes nothing.
+        if (mode.Kind == LaunchKind.Identities)
+        {
+            return IdentitiesCommand.Run();
+        }
+
         // --probe is an IPC client: it runs alongside the tracker it is probing,
         // so it takes neither the single-instance mutex nor the log file.
         if (mode.Kind == LaunchKind.Probe)
@@ -36,11 +43,19 @@ internal static class Program
             return ProbeCommand.Run();
         }
 
-        Log.Initialise();
-
         // Single instance. Two trackers writing one SQLite file would be the
         // fastest possible route to inconsistent history.
         using var instanceLock = new Mutex(initiallyOwned: true, MutexName, out var isOnlyInstance);
+
+        // The auto-restart task tries every minute; finding Trace already
+        // running is the normal case and not worth a log line each time.
+        if (!isOnlyInstance && mode.FromWatchdog)
+        {
+            return ExitCodes.AlreadyRunning;
+        }
+
+        Log.Initialise();
+
         if (!isOnlyInstance)
         {
             Log.Warn("Another Trace tracker is already running for this user. Exiting.");
@@ -56,7 +71,7 @@ internal static class Program
             return mode.Kind switch
             {
                 LaunchKind.Diagnose => DiagnoseCommand.Run(),
-                LaunchKind.Normal => TrackerHost.Run(),
+                LaunchKind.Normal => TrackerHost.Run(mode.FromWatchdog),
                 _ => ExitCodes.BadArguments,
             };
         }
@@ -102,11 +117,13 @@ internal enum LaunchKind
     Normal,
     Diagnose,
     Dump,
+    Identities,
     Probe,
 }
 
 /// <summary>Command-line surface. Kept tiny on purpose — this is a background service, not a CLI.</summary>
-internal sealed record LaunchMode(LaunchKind Kind, bool ShowHelp)
+/// <param name="FromWatchdog">Started by the auto-restart task (<c>--watchdog</c>).</param>
+internal sealed record LaunchMode(LaunchKind Kind, bool ShowHelp, bool FromWatchdog = false)
 {
     public static LaunchMode Parse(string[] args)
     {
@@ -118,12 +135,16 @@ internal sealed record LaunchMode(LaunchKind Kind, bool ShowHelp)
                     return new LaunchMode(LaunchKind.Diagnose, false);
                 case "--dump":
                     return new LaunchMode(LaunchKind.Dump, false);
+                case "--identities":
+                    return new LaunchMode(LaunchKind.Identities, false);
                 case "--probe":
                     return new LaunchMode(LaunchKind.Probe, false);
                 case "--help":
                 case "-h":
                 case "/?":
                     return new LaunchMode(LaunchKind.Normal, true);
+                case Windows.AutoRestartTask.WatchdogArgument:
+                    return new LaunchMode(LaunchKind.Normal, false, FromWatchdog: true);
             }
         }
 

@@ -9,7 +9,7 @@ import { bridge, trace, type ConnectionState } from '@/services/trace';
  *
  * Everything else in the interface depends on this: when the tracker is gone,
  * screens must say so rather than showing a spinner forever or, worse, stale
- * numbers as though they were current (DOCS/Windows Integration §21).
+ * numbers as though they were current (DOCS/specs/windows-integration.md §21).
  */
 export function useConnection(): ConnectionState {
   const [state, setState] = useState<ConnectionState>({ status: 'connecting' });
@@ -53,6 +53,54 @@ export function useDay(range: DayRange, enabled: boolean) {
     queryKey: ['activity', 'day', range.fromUtcMs, range.toUtcMs],
     queryFn: () => trace.day(range),
     enabled,
+  });
+}
+
+/**
+ * What is known about every moment of a range: recorded, or a labelled gap.
+ * Under 'activity' so it refreshes with the timeline it explains.
+ */
+export function useCoverage(range: DayRange, enabled: boolean) {
+  return useQuery({
+    queryKey: ['activity', 'coverage', range.fromUtcMs, range.toUtcMs],
+    queryFn: () => trace.coverage(range),
+    enabled,
+  });
+}
+
+/**
+ * An application's real icon. Icons do not change while Trace runs, so each is
+ * fetched once and kept; a null result (no icon on disk) is kept too.
+ */
+export function useAppIcon(applicationId: number | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['icon', applicationId],
+    queryFn: () => trace.icon(applicationId!),
+    enabled: enabled && applicationId !== undefined,
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
+    retry: false,
+  });
+}
+
+/** CPU, GPU, memory, devices and running programs, live. Read only while a page asks. */
+export function useSystemLive(enabled: boolean) {
+  return useQuery({
+    queryKey: ['system-live'],
+    queryFn: trace.systemLive,
+    enabled,
+    refetchInterval: 1500,
+    refetchIntervalInBackground: false,
+  });
+}
+
+/** Background apps in a range. Refreshes every few seconds so "running now" stays true. */
+export function useBackground(range: DayRange, enabled: boolean) {
+  return useQuery({
+    queryKey: ['activity', 'background', range.fromUtcMs, range.toUtcMs],
+    queryFn: () => trace.background(range),
+    enabled,
+    refetchInterval: 5000,
   });
 }
 

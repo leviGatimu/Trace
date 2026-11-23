@@ -9,9 +9,9 @@ namespace Trace.Tracker.Windows;
 /// exists because several of the notifications Trace depends on are delivered
 /// only as window messages:
 ///
-///   WM_WTSSESSION_CHANGE  lock / unlock          (DOCS/Tracking.md §I)
-///   WM_POWERBROADCAST     suspend / resume       (DOCS/Tracking.md §J)
-///   WM_QUERYENDSESSION    shutdown / logoff      (DOCS/Windows Integration §24)
+///   WM_WTSSESSION_CHANGE  lock / unlock          (DOCS/specs/tracking.md §I)
+///   WM_POWERBROADCAST     suspend / resume       (DOCS/specs/tracking.md §J)
+///   WM_QUERYENDSESSION    shutdown / logoff      (DOCS/specs/windows-integration.md §24)
 ///
 /// Getting the clean shutdown message matters more than it looks: it is the
 /// difference between recording a session that ended tidily at SYSTEM_SHUTDOWN

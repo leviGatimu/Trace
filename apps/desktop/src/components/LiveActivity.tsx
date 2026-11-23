@@ -6,7 +6,7 @@ import { AppSwatch, StatusDot } from './primitives';
 /**
  * What is happening right now, at the foot of the rail.
  *
- * Also the tracking indicator DOCS/Privacy.md §11 requires: the user should
+ * Also the tracking indicator DOCS/specs/privacy.md §11 requires: the user should
  * never have to wonder whether Trace is recording, so the state is named in
  * words and never left to a colour.
  */
@@ -32,7 +32,7 @@ export function LiveActivity() {
       {connected && current && !paused ? (
         <div className="mt-3">
           <div className="flex items-center gap-2">
-            <AppSwatch color={appColor(current.executable)} />
+            <AppSwatch color={appColor(current.applicationName)} />
             <span className="truncate text-ink" title={current.applicationName}>
               {current.applicationName}
             </span>

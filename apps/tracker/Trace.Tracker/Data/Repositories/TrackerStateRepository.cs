@@ -15,7 +15,7 @@ internal readonly record struct PersistedTrackerState(
     TrackingState State);
 
 /// <summary>
-/// The single-row <c>tracker_state</c> table (DOCS/data and database.md §15).
+/// The single-row <c>tracker_state</c> table (DOCS/specs/data-and-database.md §15).
 ///
 /// Its only job is to survive an interruption. Everything else about a session
 /// lives in <c>sessions</c>; this row exists so the next startup can tell what
