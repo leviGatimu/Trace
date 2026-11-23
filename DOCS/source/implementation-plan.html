@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trace: Implementation Plan</title>
+<link rel="stylesheet" href="doc.css">
+<style>
+  @page { @bottom-left { content: "Trace implementation plan"; } }
+  .phase { break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div>
+    <p class="kind">Implementation plan</p>
+    <h1>Trace</h1>
+    <div class="bar"></div>
+    <p class="line">How Trace is built, what is finished, and the work that takes it to a public 1.0.</p>
+    <p class="lede">This plan sets out the architecture and components, records the milestones already delivered, and breaks the remaining work into phases with tasks, acceptance criteria and estimates. Requirement identifiers refer to the Trace software requirements specification.</p>
+  </div>
+  <dl>
+    <dt>Document</dt><dt>Current version</dt><dt>Target</dt><dt>Date</dt>
+    <dd>Plan 1.0</dd><dd>0.3.0</dd><dd>1.0.0</dd><dd>23 November 2026</dd>
+  </dl>
+</div>
+
+<section>
+  <h2>Contents</h2>
+  <ol class="toc">
+    <li><span>1</span>Objectives and approach<small>What done means, and how the work is run</small></li>
+    <li><span>2</span>Architecture and components<small>The two programs, their parts and the boundaries between them</small></li>
+    <li><span>3</span>Delivered so far<small>Milestones completed from foundation to protection</small></li>
+    <li><span>4</span>Remaining phases<small>Tasks, deliverables and acceptance criteria for each phase</small></li>
+    <li><span>5</span>Schedule<small>Order, estimates and dependencies</small></li>
+    <li><span>6</span>Quality and testing<small>How each change is proven before it reaches the owner</small></li>
+    <li><span>7</span>Build, release and rollback<small>From source to an installed update, and back</small></li>
+    <li><span>8</span>Risks and decisions<small>What could go wrong, and what the owner needs to decide</small></li>
+  </ol>
+</section>
+
+<section class="new-page">
+  <h2><span class="n">1</span>Objectives and approach</h2>
+
+  <div class="callout">
+    <h3>Definition of done for 1.0</h3>
+    <ul>
+      <li>Every Must requirement in the specification is met and covered by an automated test or a runbook step.</li>
+      <li>Protection has been proven end to end on a real machine, including restart after the recorder is ended.</li>
+      <li>A 72-hour endurance run passes with stable memory and consistent durations.</li>
+      <li>Releases are published on GitHub with notes, and the website links to the current installer.</li>
+    </ul>
+  </div>
+
+  <h3>How the work is run</h3>
+  <ul>
+    <li><strong>Thin vertical slices.</strong> Each phase delivers something that works from the recorder through the pipe to the screen, rather than one layer at a time.</li>
+    <li><strong>Riskiest first.</strong> Unproven behaviour, such as restart after being ended, is verified before new features are added on top.</li>
+    <li><strong>Enforcement in the recorder.</strong> Rules about privacy and protection live in the recorder, never only in the interface, because any program can reach the pipe.</li>
+    <li><strong>Every change tested.</strong> A behaviour change ships with a test that would fail without it. Tests run before every install.</li>
+    <li><strong>The owner's data is protected first.</strong> Development runs against a sandbox data folder; the real history is backed up before every install.</li>
+  </ul>
+
+  <h3>Assumptions</h3>
+  <ul>
+    <li>One developer, working with an AI assistant, on a Windows 11 machine with 8 GB of memory or more.</li>
+    <li>Estimates are in working days and include testing and documentation.</li>
+    <li>No new runtime dependencies are added unless a phase states it.</li>
+  </ul>
+</section>
+
+<section class="new-page">
+  <h2><span class="n">2</span>Architecture and components</h2>
+  <p>Trace is two processes. The recorder is the product; the dashboard is a view onto it. The recorder is the only reader and writer of the database, so every duration and total is computed in one place.</p>
+
+  <div class="figure">
+    <svg viewBox="0 0 680 300" xmlns="http://www.w3.org/2000/svg" font-family="Outfit, Segoe UI, sans-serif">
+      <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6b7280"/></marker></defs>
+      <rect x="0" y="0" width="680" height="190" rx="6" fill="#15171c"/>
+      <text x="20" y="26" font-size="13" font-weight="600" fill="#fff">TraceTracker.exe</text>
+      <text x="150" y="26" font-size="10.5" fill="#9ca3af">C# on .NET 10, single self-contained executable</text>
+      <g font-size="11" font-weight="500" fill="#fff" text-anchor="middle">
+        <rect x="20" y="44" width="120" height="40" rx="4" fill="#2a2e36"/><text x="80" y="68">Watchers</text>
+        <rect x="160" y="44" width="120" height="40" rx="4" fill="#2a2e36"/><text x="220" y="68">Signal queue</text>
+        <rect x="300" y="44" width="120" height="40" rx="4" fill="#2a2e36"/><text x="360" y="68">Session engine</text>
+        <rect x="440" y="44" width="100" height="40" rx="4" fill="#1f5f8b"/><text x="490" y="68">Privacy gate</text>
+        <rect x="560" y="44" width="100" height="40" rx="4" fill="#2a2e36"/><text x="610" y="68">Repositories</text>
+        <rect x="20" y="104" width="120" height="40" rx="4" fill="#2a2e36"/><text x="80" y="128">Tray and PIN</text>
+        <rect x="160" y="104" width="120" height="40" rx="4" fill="#2a2e36"/><text x="220" y="128">Protection</text>
+        <rect x="300" y="104" width="120" height="40" rx="4" fill="#2a2e36"/><text x="360" y="128">Request router</text>
+        <rect x="440" y="104" width="100" height="40" rx="4" fill="#2a2e36"/><text x="490" y="128">Queries</text>
+        <rect x="560" y="104" width="100" height="40" rx="4" fill="#2a2e36"/><text x="610" y="128">SQLite</text>
+      </g>
+      <g stroke="#9ca3af" stroke-width="1.4">
+        <line x1="140" y1="64" x2="160" y2="64"/><line x1="280" y1="64" x2="300" y2="64"/><line x1="420" y1="64" x2="440" y2="64"/><line x1="540" y1="64" x2="560" y2="64"/>
+        <line x1="610" y1="84" x2="610" y2="104"/><line x1="560" y1="124" x2="540" y2="124"/><line x1="440" y1="124" x2="420" y2="124"/><line x1="300" y1="124" x2="280" y2="124"/>
+      </g>
+      <text x="20" y="172" font-size="10" fill="#9ca3af">Also: Windows records import, background process watcher, retention, heartbeat and recovery, auto-restart task</text>
+      <line x1="360" y1="190" x2="360" y2="232" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+      <line x1="372" y1="232" x2="372" y2="194" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+      <text x="386" y="216" font-size="10" fill="#6b7280">named pipe, NDJSON, owner's account only</text>
+      <rect x="0" y="236" width="680" height="62" rx="6" fill="#e8f0f6"/>
+      <text x="20" y="262" font-size="13" font-weight="600" fill="#15171c">Trace.exe</text>
+      <text x="20" y="282" font-size="10.5" fill="#2c3038">Electron main process with tracker client, a context bridge, and a React renderer with TanStack Query, React Router and Recharts</text>
+    </svg>
+    <p class="caption">Figure 1. Components. Signals flow left to right into storage; requests come up from the dashboard through the router.</p>
+  </div>
+
+  <table class="kv">
+    <thead><tr><th>Component</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td>Watchers</td><td>Turn Windows callbacks into timestamped signals. They do nothing else, so the engine can be tested without Windows.</td></tr>
+      <tr><td>Session engine</td><td>A single-threaded state machine that opens and closes sessions and accumulates active and idle time.</td></tr>
+      <tr><td>Privacy gate</td><td>The only path to storage. Drops excluded applications, strips titles when off, and writes nothing while paused.</td></tr>
+      <tr><td>Protection</td><td>PIN hashing and checks, unlock window, lockout, guarded settings, the scheduled task and the tamper log.</td></tr>
+      <tr><td>Request router</td><td>Validates pipe requests, demands the PIN for guarded actions, and calls queries or services.</td></tr>
+      <tr><td>Contracts</td><td>Method names, request and response shapes and error codes, in matching C# and TypeScript files.</td></tr>
+      <tr><td>Dashboard</td><td>Displays finished figures, retries a locked request after the PIN prompt, and never opens the database.</td></tr>
+      <tr><td>Installer</td><td>Per-user NSIS installer that pauses auto-restart during updates and asks about history on uninstall.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2><span class="n">3</span>Delivered so far</h2>
+  <p>The following milestones are complete, tested and installed on the owner's computer.</p>
+  <table>
+    <thead><tr><th>Milestone</th><th>Delivered</th><th>State</th></tr></thead>
+    <tbody>
+      <tr><td class="k">0 and 1, Foundation</td><td>Toolchain, repository layout, both projects, shared contracts, logging and build scripts.</td><td><span class="state done">Done</span></td></tr>
+      <tr><td class="k">2, Proof of concept</td><td>A diagnose mode printing live foreground, title, idle, lock and power state.</td><td><span class="state done">Done</span></td></tr>
+      <tr><td class="k">3, Session engine</td><td>Signal queue, state machine, idle backdating and time accumulators.</td><td><span class="state done">Done</span></td></tr>
+      <tr><td class="k">4, Database</td><td>Migrations, repositories, queries, heartbeat and crash recovery.</td><td><span class="state done">Done</span></td></tr>
+      <tr><td class="k">5, Pipe interface</td><td>Named pipe server with an owner-only access list and the version 1 contract.</td><td><span class="state done">Done</span></td></tr>
+      <tr><td class="k">6, Core dashboard</td><td>Overview, timeline, applications and live activity on real data.</td><td><span class="state done">Done</span></td></tr>
+      <tr><td class="k">7, Privacy controls</td><td>Pause, exclusions, title switch, deletion, export and first-run onboarding.</td><td><span class="state done">Done</span></td></tr>
+      <tr><td class="k">8, Windows integration</td><td>Tray, start with Windows, installer, uninstall choices and shutdown handling.</td><td><span class="state done">Done</span></td></tr>
+      <tr><td class="k">9, Hardening</td><td>Corrupt database recovery, large history queries and the local midnight fix.</td><td><span class="state done">Done</span></td></tr>
+      <tr><td class="k">V2</td><td>Calendar, custom title bar and the marketing website.</td><td><span class="state done">Done</span></td></tr>
+      <tr><td class="k">2.0, version 0.2</td><td>Correct application names, icons, background apps, Windows system records, coverage and the redesigned dashboard.</td><td><span class="state done">Installed</span></td></tr>
+      <tr><td class="k">Protection, version 0.3</td><td>Trace PIN, recovery code, lockout, guarded settings, settings repair, auto-restart task and tamper log.</td><td><span class="state verify">Installed, end-to-end check pending</span></td></tr>
+    </tbody>
+  </table>
+  <p>Current measures: 5 database migrations, 180 recorder tests and 35 dashboard tests passing, installer size 132.5 MB.</p>
+  <h3>What the delivered milestones look like</h3>
+  <figure class="shot"><img src="../images/screenshots/overview.png" alt="Milestones 6 and 2.0"><figcaption><b>Milestones 6 and 2.0.</b> The redesigned overview on demo history.</figcaption></figure>
+  <div class="shots">
+      <figure class="shot"><img src="../images/screenshots/timeline-gaps.png" alt="Milestone 9 and 2.0"><figcaption><b>Milestone 9 and 2.0.</b> Gaps explained: locks, sleeps and times the recorder was not running.</figcaption></figure>
+      <figure class="shot"><img src="../images/screenshots/calendar.png" alt="V2"><figcaption><b>V2.</b> The month calendar.</figcaption></figure>
+    </div>
+  <div class="shots">
+      <figure class="shot"><img src="../images/screenshots/application-detail.png" alt="Version 0.2"><figcaption><b>Version 0.2.</b> Application identity, icons and per-application detail.</figcaption></figure>
+      <figure class="shot"><img src="../images/screenshots/settings-data.png" alt="Milestone 7"><figcaption><b>Milestone 7.</b> Retention, export and deletion.</figcaption></figure>
+    </div>
+  <div class="shots">
+      <figure class="shot"><img src="../images/screenshots/protection-log.png" alt="Version 0.3"><figcaption><b>Version 0.3.</b> The tamper log.</figcaption></figure>
+      <figure class="shot"><img src="../images/screenshots/pin-prompt.png" alt="Version 0.3"><figcaption><b>Version 0.3.</b> The PIN prompt for a guarded action.</figcaption></figure>
+    </div>
+</section>
+
+<section>
+  <h2><span class="n">4</span>Remaining phases</h2>
+
+  <div class="phase">
+    <div class="phase-head"><h3>Phase A. Prove and publish 0.3</h3><span class="meta">1 to 2 days</span></div>
+    <p>Protection is built and installed, but restart after the recorder is ended has only been checked in tests. It must be proven on the real machine before anything else is built on it.</p>
+    <div class="cols">
+      <div>
+        <h4>Tasks</h4>
+        <ul>
+          <li>Owner sets a PIN and stores the recovery code away from the laptop.</li>
+          <li>End the recorder in Task Manager; confirm it returns within a minute and "Stopped unexpectedly" is logged.</li>
+          <li>Delete and disable the task; confirm it is repaired and logged.</li>
+          <li>Edit settings by hand; confirm they are restored.</li>
+          <li>Review every page on screen, including the PIN prompt and lockout.</li>
+          <li>Commit on a branch, merge, tag and publish 0.2.1 and 0.3.0 on GitHub, then update the website's version.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Acceptance</h4>
+        <ul>
+          <li>FR-PRO-01 to FR-PRO-12 checked on the real machine and recorded in the runbook.</li>
+          <li>No visual defects found on the Protection page or PIN prompt.</li>
+          <li>The release page has the installer and notes; the website download works.</li>
+        </ul>
+        <h4>Depends on</h4>
+        <ul><li>The owner choosing a PIN, and approving the commit and publish.</li></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head"><h3>Phase B. Endurance and performance</h3><span class="meta">2 to 4 days</span></div>
+    <p>Confirm the recorder can run for days without drifting, and measure it against the performance targets instead of assuming them.</p>
+    <div class="cols">
+      <div>
+        <h4>Tasks</h4>
+        <ul>
+          <li>A sandboxed 72-hour run with an automated application switcher and scheduled lock and sleep cycles.</li>
+          <li>Sample memory, handles, CPU and database size every 10 minutes.</li>
+          <li>Generate a year of synthetic history and time each dashboard query.</li>
+          <li>Fix any leak or slow query found, each with a test.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Acceptance</h4>
+        <ul>
+          <li>NFR-REL-05, NFR-PER-01 and NFR-PER-02 met, with a short soak report in DOCS.</li>
+          <li>Active plus idle equals duration for every session in the run.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head"><h3>Phase C. Recent files import</h3><span class="meta">3 to 5 days</span></div>
+    <p>Windows keeps a list of recently opened files. Reading it, without opening the files themselves, shows which documents were opened when. It must be off by default and clearly explained.</p>
+    <div class="cols">
+      <div>
+        <h4>Tasks</h4>
+        <ul>
+          <li>Migration 006 for imported recent items: file name, folder, time last opened.</li>
+          <li>A read-only importer that resolves shortcut targets and never reads file contents.</li>
+          <li>A setting, off by default, with plain wording; turning it off is guarded by the PIN.</li>
+          <li>Show recent files on the timeline beside the application that was in use.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Acceptance</h4>
+        <ul>
+          <li>FR-REC-10 met; an off switch leaves no rows behind.</li>
+          <li>Tests cover duplicate imports, missing targets and deletion.</li>
+          <li>Privacy document updated with the new data category.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head"><h3>Phase D. Findings</h3><span class="meta">4 to 7 days</span></div>
+    <p>Most owners will not read every timeline. A findings view points out moments worth a look, each linked to the evidence, without guessing who was at the keyboard.</p>
+    <div class="cols">
+      <div>
+        <h4>Tasks</h4>
+        <ul>
+          <li>Learn the owner's usual hours from their own history.</li>
+          <li>Flag activity outside those hours, use soon after an unexpected stop, and long unexplained gaps.</li>
+          <li>A findings page and badge, each finding linking to the timeline for that time.</li>
+          <li>Let the owner dismiss a finding or mark a period as expected.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Acceptance</h4>
+        <ul>
+          <li>FR-HIS-08 met; every finding names the records it rests on.</li>
+          <li>Tests with seeded histories produce the expected findings and no others.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head"><h3>Phase E. Release 1.0</h3><span class="meta">3 to 5 days</span></div>
+    <p>Make releases repeatable and safe to undo, and close every remaining Must requirement.</p>
+    <div class="cols">
+      <div>
+        <h4>Tasks</h4>
+        <ul>
+          <li>A scripted release: test, build, package, checksum and draft notes in one command.</li>
+          <li>Code signing, if the owner chooses it, to reduce SmartScreen and antivirus warnings.</li>
+          <li>Update the README, privacy page and website for 1.0.</li>
+          <li>A final pass against the full requirements table.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Acceptance</h4>
+        <ul>
+          <li>All Must requirements traced to passing evidence.</li>
+          <li>A clean install, an update from 0.3 and an uninstall all behave as specified.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="new-page">
+  <h2><span class="n">5</span>Schedule</h2>
+  <p>Phases run in order. Phase A comes first because later phases rely on protection working. Phases C and D can swap if findings are wanted sooner.</p>
+  <div class="figure">
+    <svg viewBox="0 0 680 210" xmlns="http://www.w3.org/2000/svg" font-family="Outfit, Segoe UI, sans-serif">
+      <g font-size="10" fill="#6b7280">
+        <text x="150" y="14">Week 1</text><text x="282" y="14">Week 2</text><text x="414" y="14">Week 3</text><text x="546" y="14">Week 4</text>
+      </g>
+      <g stroke="#d9dce1" stroke-width="1">
+        <line x1="146" y1="22" x2="146" y2="200"/><line x1="278" y1="22" x2="278" y2="200"/><line x1="410" y1="22" x2="410" y2="200"/><line x1="542" y1="22" x2="542" y2="200"/><line x1="674" y1="22" x2="674" y2="200"/>
+      </g>
+      <g font-size="11" font-weight="500" fill="#15171c">
+        <text x="0" y="48">A. Prove and publish</text>
+        <text x="0" y="84">B. Endurance</text>
+        <text x="0" y="120">C. Recent files</text>
+        <text x="0" y="156">D. Findings</text>
+        <text x="0" y="192">E. Release 1.0</text>
+      </g>
+      <rect x="146" y="34" width="53" height="20" rx="3" fill="#15171c"/>
+      <rect x="199" y="70" width="106" height="20" rx="3" fill="#1f5f8b"/>
+      <rect x="252" y="70" width="53" height="20" rx="3" fill="#1f5f8b" opacity=".35"/>
+      <rect x="305" y="106" width="79" height="20" rx="3" fill="#1f5f8b"/>
+      <rect x="384" y="106" width="53" height="20" rx="3" fill="#1f5f8b" opacity=".35"/>
+      <rect x="437" y="142" width="106" height="20" rx="3" fill="#1f5f8b"/>
+      <rect x="543" y="142" width="79" height="20" rx="3" fill="#1f5f8b" opacity=".35"/>
+      <rect x="543" y="178" width="79" height="20" rx="3" fill="#1f5f8b"/>
+      <rect x="622" y="178" width="52" height="20" rx="3" fill="#1f5f8b" opacity=".35"/>
+    </svg>
+    <p class="caption">Figure 2. Indicative schedule. Solid bars are the low estimate; the lighter extension is the high estimate. Total 13 to 23 working days.</p>
+  </div>
+
+  <table>
+    <thead><tr><th>Phase</th><th>Estimate</th><th>Depends on</th><th>Main risk</th></tr></thead>
+    <tbody>
+      <tr><td class="k">A</td><td>1 to 2 days</td><td>Owner's PIN and approval to publish</td><td>Restart fails on the real machine</td></tr>
+      <tr><td class="k">B</td><td>2 to 4 days</td><td>A</td><td>Low free memory slows the run</td></tr>
+      <tr><td class="k">C</td><td>3 to 5 days</td><td>A</td><td>Shortcut formats vary between Windows builds</td></tr>
+      <tr><td class="k">D</td><td>4 to 7 days</td><td>A, ideally C</td><td>Too many findings that are not useful</td></tr>
+      <tr><td class="k">E</td><td>3 to 5 days</td><td>A to D</td><td>Signing certificate lead time</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2><span class="n">6</span>Quality and testing</h2>
+  <table class="kv">
+    <tbody>
+      <tr><td>Unit tests</td><td>The session engine, privacy gate, queries, protection and migrations, in xUnit, run before every build.</td></tr>
+      <tr><td>Integration tests</td><td>A real temporary database and a real pipe, with scripted signals instead of Windows.</td></tr>
+      <tr><td>Interface tests</td><td>Vitest and Testing Library against a mocked bridge, covering loading, empty, error and locked states.</td></tr>
+      <tr><td>Opt-in system checks</td><td>Tests that touch real Windows, such as registering the scheduled task, run only when enabled.</td></tr>
+      <tr><td>Runbook</td><td>A scripted manual day and protection checks, performed before each release.</td></tr>
+      <tr><td>Static checks</td><td>Type checking in TypeScript, warnings as errors in C#, and a dependency vulnerability check.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2><span class="n">7</span>Build, release and rollback</h2>
+  <ol>
+    <li><strong>Test.</strong> Run both test suites and the type check. Any failure stops the release.</li>
+    <li><strong>Build.</strong> Publish the recorder as one executable, build the dashboard, and package both with electron-builder into the NSIS installer.</li>
+    <li><strong>Back up.</strong> Copy the owner's history and settings to a dated folder before installing on their machine.</li>
+    <li><strong>Install.</strong> The installer marks the update, pauses auto-restart, stops the recorder, installs, and starts it again. The recorder backs up the database before any migration.</li>
+    <li><strong>Check.</strong> Confirm the version in the recorder log, that migrations applied, and that "Installed or updated" appears in the tamper log.</li>
+    <li><strong>Publish.</strong> Tag the commit, create the GitHub release with notes and the installer, and update the website.</li>
+  </ol>
+  <h3>Rollback</h3>
+  <p>Reinstall the previous installer. Because a newer database cannot be read by an older recorder, restore the database from the backup taken in step 3 or the recorder's own pre-migration copy. This is why every install starts with a backup.</p>
+</section>
+
+<section>
+  <h2><span class="n">8</span>Risks and decisions</h2>
+  <table>
+    <thead><tr><th>Risk</th><th>Effect</th><th>Response</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Restart fails in real use</td><td>Trace can be ended without coming back.</td><td>Phase A proves it before new work; the tray and log still show the stop.</td></tr>
+      <tr><td class="k">Antivirus flags the scheduled task</td><td>Protection is removed or the installer is blocked.</td><td>Keep the task visible and described; consider code signing in Phase E.</td></tr>
+      <tr><td class="k">Forgotten PIN and lost code</td><td>The owner cannot change guarded settings.</td><td>The recovery code is shown once with a confirmation step; reinstalling with history kept is the last resort.</td></tr>
+      <tr><td class="k">Data loss during an update</td><td>History is damaged.</td><td>Two backups before every migration; migrations are tested on copies of real schemas.</td></tr>
+      <tr><td class="k">Scope drift toward monitoring</td><td>Trace becomes a tool for watching others.</td><td>Every new data category must be visible, switchable and recorded in the privacy document.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Decisions needed from the owner</h3>
+  <ul>
+    <li>Approval to commit, publish 0.2.1 and 0.3.0 on GitHub, and update the website.</li>
+    <li>Whether to buy a code signing certificate before 1.0.</li>
+    <li>Whether recent files (Phase C) or findings (Phase D) should come first.</li>
+  </ul>
+</section>
+
+</body>
+</html>

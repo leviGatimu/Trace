@@ -1,13 +1,219 @@
 # HANDOFF
 
-## Current Task
-**Latest (2026-11-06):** the marketing site lives here as `apps/website`, an npm
+## Current Task — tamper protection (2026-11-23), BUILT, NOT INSTALLED
+Owner asked that someone using the laptop cannot simply switch Trace off.
+Owner chose: all of it (PIN + auto-restart + settings-file repair + tamper
+log) with a separate Trace PIN. Told plainly: it cannot be made impossible
+on the same Windows account without stealth/admin software; it makes
+stopping hard and always visible.
+
+- Tracker: `Protection/` (Secrets = PBKDF2-SHA256 600k + 16-byte salt,
+  recovery code XXXX-XXXX-XXXX-XXXX; GuardedSettings = which settings need
+  the PIN to turn DOWN; ProtectionService = Demand/Setup/Unlock/Lock/Disable,
+  lockout 5 tries then 1 min doubling to 1 h, persisted; tamper log).
+  Migration 005 (`protection`, `tamper_log`), schema v5.
+- Enforced in the tracker (RequestRouter: pause, settings weakening, all
+  deletes; tray Pause/Quit via `Tray/PinPrompt.cs`). New error `E_LOCKED`,
+  IPC `protection.status|setup|unlock|lock|disable|log`. Unlock lasts 5 min.
+- Auto-restart: `Windows/AutoRestartTask.cs`, per-user scheduled task
+  "Trace Recorder" (logon + every minute, IgnoreNew, no time limit,
+  unelevated, visible) running `TraceTracker.exe --watchdog`. A watchdog
+  launch that finds Trace running exits before logging. Checked every 60 s
+  and reinstalled + logged if removed/disabled. Quit with PIN disables it
+  (marker `quit-with-pin`); installer disables it and writes `updating`
+  (installer.nsh); uninstall deletes it. Sandbox never touches it.
+- Startup logs `unexpected-stop` (run marker left = ended/crash/power loss,
+  from last heartbeat to now), `updated`, `new-history`; a hand-edited or
+  unreadable settings.json is put back from the DB snapshot when a PIN is set.
+- Dashboard: `services/trace.ts` asks for the PIN on E_LOCKED and retries;
+  `components/PinGate.tsx`; `pages/ProtectionPage.tsx` (/protection, shield
+  in the rail with a badge for unseen entries; link in Settings menu);
+  `hooks/useProtection.ts`.
+- Tests: tracker 180 pass (15 in ProtectionTests; opt-in
+  `TRACE_REAL_TASK=1` AutoRestartTaskCheck registered a throwaway task with
+  real Windows and removed it — passed). Desktop 35 pass, typecheck clean.
+- **Installed 0.3.0 on the owner's PC (2026-11-23 13:10)**, data kept.
+  Backup: `Documents\Trace backup before 0.3.0 (2026-11-23)`; tracker's own
+  `activity.pre-v4-20261123-111053.db`. Migration 005 applied, tamper log
+  got its "updated" entry. Versions are 0.3.0 everywhere. NOT committed,
+  NOT released, website still 0.1.0.
+- Next step: owner sets a PIN on the Protection page (their choice, never
+  ours), then end TraceTracker.exe and confirm it is back within a minute
+  with an `unexpected-stop` entry and the "Trace Recorder" task present.
+
+## Earlier task
+**Trace 2.0 — Activity Intelligence (2026-11-21).** Plan: `DOCS/product/trace-2.0-plan.md`.
+Phase 1 audit done; owner chose **option A** (poll own-user processes, opt-in,
+no command lines). **Phase 2 (application identity) built, all tests green,
+UNCOMMITTED and UNRELEASED.**
+
+What phase 2 changed: names now come from registry → package manifest →
+version info → filename (`Identity/`). Migration 002 adds `applications.category,
+package_family, identity_source, identity_version` and `sessions.process_id`.
+`IdentityBackfill` re-names history once per resolver version, in the background
+at startup, touching only `applications` presentation columns. A filename guess
+never overwrites a recorded name. UI: a window title that only repeats the app
+name is hidden; the Applications list shows the executable when names collide.
+
+Gotchas found on the way: a package folder's ResourceId is usually EMPTY
+(`_x64__pub`); static fields initialise in textual order (registry JSON options
+must precede `Default`); `chatgpt.exe` lives in the `OpenAI.Codex` package, so
+an exe-keyed "ChatGPT" entry would mislabel Codex.
+
+**Do not run a dev tracker against the real database**: migration 002 upgrades
+it and the installed 0.1.0 tracker then refuses to open it. Use
+`TraceTracker.exe --identities` (read-only) to check naming on real data.
+
+**2026-11-23: owner now runs 0.2.1** (in-place update over 0.2.0, data kept).
+- 0.2.1 includes the System page, Background apps and the opening animation.
+- The system.live call to the installed recorder was verified (CPU 44.8%,
+  GPU 14.2%, 31 devices, 91 programs).
+- Bug fixed: the System and Background pages showed skeletons for ever when
+  the recorder errored (an older recorder does not know the method). They
+  now show "The recorder needs updating".
+- Versions are 0.2.1 in the package.json files and the csproj. Still NOT
+  committed and NOT released.
+
+**2026-11-23: System page added (live only, nothing stored).**
+- `pages/SystemPage.tsx`, with sidebar item "System" (cpu icon) and route
+  /system.
+- Shows CPU, GPU and memory ring gauges with one-minute sparklines,
+  connected devices grouped by kind, a "Working hardest" list, and a
+  running-programs table.
+- Tracker side is `Windows/SystemMonitor.cs`, IPC `system.live`, polled
+  every 1.5 s while the page is open:
+  - CPU via GetSystemTimes deltas; memory via GlobalMemoryStatusEx.
+  - GPU via PDH GPU Engine Utilization Percentage, the Task-Manager
+    method; adapters from the display class registry key.
+  - Devices via SetupAPI DIGCF_PRESENT|ALLCLASSES, filtered to people's
+    device kinds. Bluetooth entries are PAIRED devices, not necessarily
+    connected.
+- Real check on the owner's PC passed (i7-1260P, Iris Xe, devices listed).
+- Tracker tests 164 and desktop 32 pass. NOT seen on screen (low RAM).
+  Not in the installed 0.2.0.
+
+**2026-11-23: opening animation added** (`components/Splash.tsx`, the
+"Opening sequence" keyframes at the end of `styles/app.css`, mounted in
+App.tsx).
+- Plays once per launch (sessionStorage) and skips on click or key. Not shown
+  with reduced motion.
+- Typecheck and 32 tests pass. NOT seen on screen: only 0.9 GB of RAM was
+  free, so no dev window was opened.
+- It is not in the installed 0.2.0; that needs a rebuilt installer.
+
+**2026-11-23: owner's machine now runs 0.2.0.**
+- Installed from `installer/Trace-Setup-0.2.0.exe`; 0.1.0 was uninstalled
+  silently and its data kept.
+- Pre-upgrade backup: `Documents\Trace backup before 0.2.0 (2026-11-23)`,
+  verified (113,559 sessions). The tracker's own backup is
+  `activity.pre-v1-20261122-234346.db`.
+- The live DB is schema 4 and recording.
+- Versions were bumped to 0.2.0 in package.json files and the csproj.
+  NOT committed, NOT published as a GitHub release, and the website still
+  points at 0.1.0.
+
+**2026-11-22: a second brief (investigation-focused) replaced phases 3–7.**
+`DOCS/product/trace-2.0-plan.md` §0 holds the record audit and slices 1–7.
+- The pre-code explanation has been given to the owner.
+- Owner decisions: no AI (no local model, no Ask panel); Recent-items
+  import yes, read-only, off by default.
+- **Slice 1 (application profiles) built, uncommitted.** Tracker tests 132
+  and desktop 35 all pass. Checked on a copy of the real history; see
+  plan §0.4.
+- To repeat that check: back up the real DB to a copy, set
+  `TRACE_HISTORY_COPY`, then run
+  `dotnet test --filter RealHistoryCheck`. The test is a no-op unless that
+  variable is set.
+- Not verified in the running app: the dev tracker cannot be pointed at a
+  copy (no data-dir override, and it would share the installed tracker's
+  pipe).
+- **Slice 2 (coverage, Windows records, evidence IDs) built, uncommitted.**
+  Tracker tests 153 and desktop 35 pass.
+- Running-app check: run against a copy with `TRACE_SANDBOX=<folder>`
+  (holding `Datactivity.db` and `settings.json`). It gets a separate
+  pipe, mutex and userData, and never touches the startup entry.
+  - Start the Debug `TraceTracker.exe` and `node scripts/dev.mjs` with
+    `TRACE_DEBUG_PORT=9333`.
+  - Take screenshots with `scripts/shot.mjs`.
+- Not visually verified: the app page's Executables tab. The scripted
+  route to `#/applications/314` landed on Overview; cause not checked.
+- **UI rebuild in progress (2026-11-22), uncommitted.**
+  - The owner REJECTED a dense "investigation instrument" redesign. See
+    memory `feedback-ui-style`.
+  - New direction follows the owner's reference image: black ground,
+    #18181b cards with 22px radius, one white feature card, icon-only rail
+    (active = white tile), Outfit font, delta pills, blue hour bars, donut.
+  - Done: tokens (`styles/app.css`), `components/bento.tsx`,
+    `components/charts.tsx`, rail and top bar (`app/Shell.tsx`,
+    `components/TitleBar.tsx`), `DayPicker` pill, the new Overview.
+    Screenshots were checked in the sandbox.
+  - Timeline & search: rebuilt in the reference's "Order list" style
+    (colour-headed status cards, search pill, chips, 25-row pages, status
+    pills). The Inspector is now a rounded slide-over drawer.
+  - Real app icons: `Windows/AppIcons.cs` uses `Icon.ExtractIcon(path, 0, 64)`,
+    falling back to the package logo (largest `.scale-*.png`). Icons are
+    cached as PNG in `%LOCALAPPDATA%\Trace\Icons` and served over IPC
+    `applications.getIcon`. Delete-all clears them. `AppMark` takes an
+    `applicationId`.
+  - Since then, all rebuilt in the new style and checked by screenshot in
+    the sandbox:
+    - Calendar.
+    - Applications: the list, with top-3 cards and a card grid.
+    - Each app's own page.
+    - The record drawer.
+    - Timeline Filters and Sort popovers.
+  - Animations live in `styles/app.css` under "Motion": rise, grow, pop,
+    slide-in, lift, arrow-turn, nav-pop, clock-hand, breathe. Also
+    `CountUp` and `AnimatedClock` in `bento.tsx`.
+  - The sidebar now has Overview, Timeline, Gaps (with a badge),
+    Applications, Calendar, Settings, Search, pause/resume and a status
+    tile. A sliding white tile marks the active item, and labels slide out
+    on hover.
+  - Settings rebuilt:
+    - Three status cards at the top, a section menu (Recording, Privacy,
+      Excluded apps, Your data, Display, Startup, Advanced) and one section
+      at a time.
+    - Big switches, pill choices and confirmation windows before deleting.
+    - Excluding an app now excludes ALL its program files, read from
+      `applications.getDetail` aliases.
+  - Settings icon is now a gear (Lucide path, 24-unit grid, `GRID_24` in
+    Icon.tsx).
+  - The 12 stale desktop tests were rewritten for the new screens; 32/32
+    pass. Tests use a matchMedia(reduce) mock in vitest.setup.ts so
+    counters show final values.
+  - Owner reported "switched to WhatsApp and it didn't notice". It WAS
+    recorded (22:43:05–22:43:26 in both DBs); the sandbox window had been
+    left on yesterday by my screenshot scripts.
+  - Background apps BUILT (2026-11-23), uncommitted:
+    - Tracker side:
+      - Migration 004 adds `process_instances`, keyed (pid, started_at);
+        schema is now v4.
+      - `Processes/ProcessRecorder.cs` diffs snapshots;
+        `Windows/WindowsProcessSource.cs` takes a Toolhelp32 snapshot of
+        this session only, with creation time from GetProcessTimes.
+      - The host polls every 2 s while `RecordBackgroundApps` (default
+        OFF) && TrackingEnabled. On stop or shutdown, running rows become
+        'unknown'.
+      - IPC `background.get`. DeleteOrphans keeps applications referenced
+        by processes; delete-range, delete-all and retention include
+        `process_instances`.
+    - Dashboard side: `pages/BackgroundPage.tsx`, a sidebar item (layers
+      icon), and the switch in Settings > Recording.
+    - Tests: tracker 162 pass, plus a real opt-in check (293 processes, all
+      with start time and path). Desktop 32 pass, typecheck clean.
+    - NOT visually verified: the sandbox apps were killed by Claude Code
+      for low memory, and must not be restarted without the owner asking.
+  - 7 desktop tests are stale (they describe the old screens).
+    Tracker tests were not rerun after the icon change.
+  - `@fontsource/ibm-plex-*` is installed but unused; remove it.
+
+**Earlier (2026-11-06):** the marketing site lives here as `apps/website`, an npm
 workspace, with its own notes in `apps/website/HANDOFF.md`. Merged to `main`;
 installer published as GitHub release `v0.1.0`.
 
 Building **Trace** — a private, local-only Windows activity-history desktop app
 (Electron/React UI + separate C#/.NET background tracker + local SQLite).
-Following `DOCS/IMPLEMENTATION-PLAN.md`, which is derived from `DOCS/` and is the
+Following `DOCS/engineering/technical-implementation-plan.md`, which is derived from `DOCS/` and is the
 binding technical spec.
 
 ## Status
@@ -18,7 +224,7 @@ launch → tray → uninstall all verified on this machine.
 122 tests pass (93 tracker, 29 dashboard).
 
 ## Progress
-- [x] Documentation audit; `DOCS/IMPLEMENTATION-PLAN.md`; 5 decisions resolved
+- [x] Documentation audit; `DOCS/engineering/technical-implementation-plan.md`; 5 decisions resolved
 - [x] **Milestone 1 — foundation**: repo, git, npm workspaces, IPC contract
       (spec + TS + C# mirror), tracker project, paths, privacy-aware logging
 - [x] **Milestone 2 — tracker proof of concept**: Win32 layer verified live
@@ -49,7 +255,7 @@ launch → tray → uninstall all verified on this machine.
 - [~] **Milestone 9 — hardening** (in progress): large-history profiling and
       database-corruption recovery done; soak running; physical lock / sleep /
       restart tests and the two-Windows-accounts test still to do
-- [~] **V2** (`DOCS/MVPV2.md`): **Calendar and Analytics done.** Next candidates
+- [~] **V2** (`DOCS/product/mvp-v2.md`): **Calendar and Analytics done.** Next candidates
       from the doc: categories, rules, favourites, notes, reports.
 - [ ] Milestone 10 — polish
 
@@ -190,7 +396,7 @@ development testing; delete `Data\activity.db*` to start clean.
   `src/test/vitest.setup.ts`.
 - The global CLAUDE.md asks for UI components from the Magic MCP server first.
   Those tools are not available in this environment, so components are
-  hand-written to the palette and layout in `DOCS/UI and UX-design.md`.
+  hand-written to the palette and layout in `DOCS/specs/ui-ux-design.md`.
 
 ### Milestone 7 notes
 - **Exclusion verified empirically, not just by test**: `notepad.exe` excluded,
@@ -202,7 +408,7 @@ development testing; delete `Data\activity.db*` to start clean.
   attempt had the registry win, which silently undid the user enabling it.
   Task Manager's Startup tab disables via its own `StartupApproved` key rather
   than by deleting this value, so that choice still stands.
-- **Onboarding is framed as consent, not permission.** `DOCS/MVP.md` §9 sketches
+- **Onboarding is framed as consent, not permission.** `DOCS/product/mvp.md` §9 sketches
   "Trace needs access to…", but nothing here needs a Windows permission or a UAC
   prompt, so asking would misdescribe what is happening (plan §13.4). A test
   asserts the phrase "needs access" does not appear.
@@ -231,7 +437,7 @@ development testing; delete `Data\activity.db*` to start clean.
   tracker, and asks before touching history. **Verified**: install → launch →
   auto-start tracker → uninstall → history preserved, no dangling startup entry.
 - The uninstall prompt offers **Keep / Delete**, not the Keep / Export / Delete
-  of `DOCS/Privacy.md` §23. Exporting from an uninstaller that is deleting the
+  of `DOCS/specs/privacy.md` §23. Exporting from an uninstaller that is deleting the
   application is awkward; the message instead names the data folder so the user
   can copy it. Export lives in Settings, where the app still exists.
 - **`electronVersion` is pinned in `electron-builder.yml`** — Electron is hoisted
@@ -282,7 +488,7 @@ with "separating each part by its own borders". The current design:
 ### Superseded: the glass direction
 The product owner reviewed the flat dark interface and asked for **fluid glass** —
 layered translucency, bubbly, responsive. This reverses specifics in
-`DOCS/UI and UX-design.md`, which is now amended at the top rather than
+`DOCS/specs/ui-ux-design.md`, which is now amended at the top rather than
 rewritten; its page structure and behaviour still stand.
 
 - `src/styles/app.css` holds the whole system: glass recipe, ambient field,
@@ -367,6 +573,8 @@ to know where a day starts.
      database-corruption quarantine.
 
 ## Recently Completed
+- DOCS reorganised (2026-11-23): `pdf/` (Concept Note 11 pp, SRS 14 pp, Implementation Plan 11 pp, all with screenshots), `product/`, `specs/`, `engineering/` (kebab-case names; 52 code comments repointed), `images/screenshots/` (18 shots on demo history), `images/real-captures/` (owner's own 7 screens, private), `source/` (HTML, `doc.css`, `build-pdfs.mjs`, `screenshots/` capture kit + README). Index: `DOCS/README.md`.
+- Root README updated for 0.3.0 (2026-11-23): demo screenshots from `DOCS/images/screenshots`, Windows records, background apps, System, Protection, sandbox note, test counts 180/35, new tracker folders, links to the three PDFs. `brand/screenshots` (old UI) no longer referenced.
 - Merged the marketing site into the repo as the `apps/website` workspace
   (2026-11-06).
 - An application's Today / Yesterday / Last 7 days now use the user's local

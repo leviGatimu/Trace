@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trace: Concept Note</title>
+<style>
+  @font-face { font-family: "Outfit"; font-weight: 400; src: url("../../node_modules/@fontsource/outfit/files/outfit-latin-400-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Outfit"; font-weight: 500; src: url("../../node_modules/@fontsource/outfit/files/outfit-latin-500-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Outfit"; font-weight: 600; src: url("../../node_modules/@fontsource/outfit/files/outfit-latin-600-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Outfit"; font-weight: 700; src: url("../../node_modules/@fontsource/outfit/files/outfit-latin-700-normal.woff2") format("woff2"); }
+
+  :root {
+    --ink: #15171c;
+    --body: #2c3038;
+    --muted: #6b7280;
+    --rule: #d9dce1;
+    --wash: #f3f4f6;
+    --accent: #1f5f8b;
+    --accent-wash: #e8f0f6;
+    --never: #8a2f2f;
+    --never-wash: #f7ecec;
+  }
+
+  @page {
+    size: A4;
+    margin: 22mm 20mm 22mm 20mm;
+    @bottom-left { content: "Trace concept note"; font: 500 8pt "Outfit", sans-serif; color: #6b7280; }
+    @bottom-right { content: counter(page) " of " counter(pages); font: 500 8pt "Outfit", sans-serif; color: #6b7280; }
+  }
+  @page cover {
+    margin: 0;
+    @bottom-left { content: none; }
+    @bottom-right { content: none; }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0;
+    background: #fff;
+    color: var(--body);
+    font: 10.5pt/1.55 Cambria, Georgia, "Times New Roman", serif;
+    hyphens: auto;
+  }
+
+  h1, h2, h3, .sans { font-family: "Outfit", "Segoe UI", sans-serif; color: var(--ink); }
+  h2 {
+    font-size: 19pt; font-weight: 600; letter-spacing: -0.01em;
+    margin: 0 0 4mm; padding-top: 2mm;
+    break-after: avoid;
+  }
+  h2 .n { color: var(--accent); font-weight: 500; margin-right: 3mm; }
+  h3 { font-size: 11.5pt; font-weight: 600; margin: 6mm 0 1.5mm; break-after: avoid; }
+  p { margin: 0 0 3mm; max-width: 158mm; }
+  ul { margin: 0 0 3mm; padding-left: 5mm; }
+  li { margin-bottom: 1.2mm; }
+  strong { color: var(--ink); }
+  section { margin-bottom: 9mm; }
+  .page { break-before: auto; }
+  h2 + p, h3 + p { break-before: avoid; }
+  .feature, .stage, li { break-inside: avoid; }
+
+  /* Cover */
+  .cover {
+    page: cover;
+    height: 297mm; width: 210mm;
+    display: flex; flex-direction: column; justify-content: space-between;
+    padding: 34mm 24mm 24mm;
+    background: var(--ink); color: #e9ebef;
+  }
+  .cover .kind { font: 500 11pt "Outfit", sans-serif; color: #9fb7c9; margin: 0 0 10mm; }
+  .cover h1 { font-size: 64pt; font-weight: 700; color: #fff; letter-spacing: -0.03em; line-height: 1; margin: 0 0 8mm; }
+  .cover .line { font: 400 20pt/1.3 "Outfit", sans-serif; color: #fff; max-width: 140mm; margin: 0 0 8mm; }
+  .cover .lede { font-size: 12pt; line-height: 1.6; color: #c3c8d0; max-width: 135mm; }
+  .cover .bar { height: 1.2mm; width: 36mm; background: #5b9bc9; margin-bottom: 12mm; }
+  .cover dl { display: grid; grid-template-columns: repeat(3, auto); gap: 2mm 14mm; justify-content: start; margin: 0; font-family: "Outfit", sans-serif; }
+  .cover dt { font-size: 8.5pt; color: #8d95a1; }
+  .cover dd { margin: 0; font-size: 11pt; font-weight: 500; color: #fff; }
+
+  /* Summary block */
+  .summary {
+    background: var(--accent-wash);
+    border-left: 1.4mm solid var(--accent);
+    padding: 6mm 7mm 4mm;
+    margin-bottom: 9mm;
+  }
+  .summary h2 { font-size: 14pt; margin-bottom: 3mm; }
+  .summary p { font-size: 11pt; }
+
+  /* Figures */
+  .figures { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; margin: 5mm 0 7mm; }
+  .fig { border-top: 0.6mm solid var(--ink); padding-top: 2.5mm; }
+  .fig b { display: block; font: 600 20pt/1.1 "Outfit", sans-serif; color: var(--ink); }
+  .fig span { font: 400 8.5pt/1.35 "Outfit", sans-serif; color: var(--muted); }
+
+  /* Quote of the question */
+  .question {
+    font: 400 15pt/1.35 "Outfit", sans-serif; color: var(--ink);
+    margin: 4mm 0 5mm; padding-left: 5mm; border-left: 0.6mm solid var(--rule);
+  }
+
+  /* Day sample */
+  .day { font: 400 9pt/1.7 "Outfit", sans-serif; border: 0.3mm solid var(--rule); border-radius: 2mm; padding: 3.5mm 5mm; margin: 3mm 0 5mm; width: 120mm; }
+  .day div { display: grid; grid-template-columns: 15mm 22mm 1fr 12mm; }
+  .day .t { color: var(--muted); }
+  .day .d { text-align: right; color: var(--muted); }
+  .day .gap { color: var(--muted); font-style: italic; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 2mm 0 5mm; font-size: 9.5pt; break-inside: avoid; }
+  th { font: 600 8.5pt "Outfit", sans-serif; color: var(--muted); text-align: left; padding: 0 3mm 1.8mm 0; border-bottom: 0.4mm solid var(--ink); }
+  td { padding: 2mm 3mm 2mm 0; border-bottom: 0.25mm solid var(--rule); vertical-align: top; }
+  td:first-child { font-family: "Outfit", sans-serif; font-weight: 500; color: var(--ink); width: 32%; }
+
+  /* Records / never */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; margin: 4mm 0 6mm; break-inside: avoid; }
+  .box { border-radius: 2mm; padding: 4.5mm 5mm 3mm; }
+  .box h3 { margin-top: 0; }
+  .box ul { list-style: none; padding: 0; font-size: 9.8pt; }
+  .box li { padding-left: 4mm; position: relative; }
+  .box li::before { content: ""; position: absolute; left: 0; top: 2.2mm; width: 1.5mm; height: 1.5mm; border-radius: 50%; }
+  .yes { background: var(--accent-wash); }
+  .yes li::before { background: var(--accent); }
+  .no { background: var(--never-wash); }
+  .no h3 { color: var(--never); }
+  .no li::before { background: var(--never); }
+
+  /* Feature grid */
+  .features { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm 6mm; margin: 3mm 0 4mm; }
+  .feature { break-inside: avoid; border-top: 0.25mm solid var(--rule); padding-top: 2.5mm; }
+  .feature h3 { margin: 0 0 1mm; font-size: 10.5pt; }
+  .feature p { font-size: 9.6pt; margin: 0; }
+
+  /* Architecture */
+  .arch { margin: 4mm 0 6mm; break-inside: avoid; }
+  .arch svg { width: 100%; height: auto; display: block; }
+  .caption { font: 400 8.5pt "Outfit", sans-serif; color: var(--muted); margin-top: 2mm; }
+
+  /* Roadmap */
+  .stage { display: grid; grid-template-columns: 26mm 1fr; gap: 4mm; padding: 2.5mm 0; border-bottom: 0.25mm solid var(--rule); break-inside: avoid; }
+  .stage .when { font: 600 9pt "Outfit", sans-serif; color: var(--ink); }
+  .stage .when small { display: block; font-weight: 400; color: var(--muted); }
+  .stage p { margin: 0; font-size: 9.8pt; }
+  .tag { display: inline-block; font: 500 7.5pt "Outfit", sans-serif; padding: 0.4mm 2mm; border-radius: 3mm; margin-left: 2mm; vertical-align: 0.3mm; }
+  .tag.done { background: var(--accent-wash); color: var(--accent); }
+  .tag.next { background: var(--wash); color: var(--muted); }
+
+  .closing { margin-top: 8mm; padding-top: 4mm; border-top: 0.4mm solid var(--ink); }
+
+  /* Screenshots */
+  .shot { margin: 3mm 0 5mm; break-inside: avoid; }
+  .shot img { display: block; width: 100%; height: auto; border-radius: 2mm; border: 0.3mm solid #d9dce1; }
+  .shot figcaption { font: 400 8.5pt "Outfit", sans-serif; color: #6b7280; margin-top: 1.8mm; }
+  .shot figcaption b { color: #15171c; font-weight: 600; }
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm 5mm; margin: 3mm 0 5mm; }
+  .shots .shot { margin: 0; }
+  figure { margin: 0; }
+</style>
+</head>
+<body>
+
+<!-- Cover -->
+<div class="cover">
+  <div>
+    <p class="kind">Concept note</p>
+    <h1>Trace</h1>
+    <div class="bar"></div>
+    <p class="line">A private, local history of how a Windows computer is used.</p>
+    <p class="lede">Trace records which applications were in use and when, so the owner of a computer can look back at any hour of any day and see what happened. Everything stays on the machine.</p>
+  </div>
+  <dl>
+    <dt>Version</dt><dt>Platform</dt><dt>Date</dt>
+    <dd>0.3.0</dd><dd>Windows 10 and 11</dd><dd>November 2026</dd>
+  </dl>
+</div>
+
+<!-- Page 2: summary, problem -->
+<div class="page">
+  <div class="summary">
+    <h2>Summary</h2>
+    <p>Trace is a desktop application that keeps a timeline of a Windows computer's use: the application in front, its window title, when the machine was idle, locked, asleep or switched off. It is built for one person, the owner of the computer, and it answers questions a screen-time total cannot, such as <em>what was open at seven last night</em> or <em>was this laptop used while I was away</em>.</p>
+    <p>It works without an account, a server or an internet connection. The history is a single file on the owner's disk, readable only through their own Windows account, and the owner can pause, exclude, export or delete any of it.</p>
+  </div>
+
+  <div class="figures">
+    <div class="fig"><b>0</b><span>bytes sent off the machine. No account, server or telemetry.</span></div>
+    <div class="fig"><b>2</b><span>separate programs: a recorder and a dashboard.</span></div>
+    <div class="fig"><b>1 min</b><span>longest the recorder stays off if someone ends it.</span></div>
+    <div class="fig"><b>215</b><span>automated tests across the recorder and the dashboard.</span></div>
+  </div>
+
+  <section>
+    <h2><span class="n">1</span>The problem</h2>
+    <p>Existing screen-time tools summarise. They report that a browser was open for two hours today, which is rarely the question a person actually has. The useful questions are about a particular moment:</p>
+    <p class="question">What was I doing on Tuesday afternoon? Was my computer used while I was out?</p>
+    <p>Answering them needs the shape of the day kept intact, not a daily total. Windows does not keep this history by default: its own logs record boots, sign-ins and sleep, but not which application was in use, and they roll over after weeks.</p>
+    <p>The tools that do record this level of detail are mostly workplace monitoring products. They send data to an employer's server, often capture screenshots or keystrokes, and are designed to watch someone else. There is no well-made tool for a person who simply wants a reliable record of their own machine.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">2</span>The concept</h2>
+    <p>Trace keeps every session with its real start, its real end and what was on screen, so a day can be rebuilt rather than summarised:</p>
+    <div class="day">
+      <div><span class="t">09:00</span><span>Chrome</span><span>Project brief, Google Docs</span><span class="d">20m</span></div>
+      <div><span class="t">09:20</span><span>VS Code</span><span>tracker, main.ts</span><span class="d">40m</span></div>
+      <div><span class="t">10:00</span><span>Chrome</span><span>GitHub</span><span class="d">30m</span></div>
+      <div class="gap"><span class="t">10:30</span><span>Idle</span><span>no input</span><span class="d">10m</span></div>
+      <div class="gap"><span class="t">10:40</span><span>Locked</span><span>until 11:30</span><span class="d">50m</span></div>
+    </div>
+    <p>It behaves like a historian rather than a supervisor. It records <strong>that</strong> something happened and when, never the private content of it. Its user and its subject are the same person.</p>
+  </section>
+</div>
+
+<!-- Page 3: principles -->
+<div class="page">
+  <section>
+    <h2><span class="n">3</span>Design principles</h2>
+    <p>Privacy in Trace is a property of how it is built, not a setting the user has to find. Four rules hold throughout.</p>
+
+    <h3>Local first, with nothing to switch off</h3>
+    <p>There is no network code in the recorder. The history is a SQLite file under the user's own profile, and the dashboard reaches it only through a Windows named pipe that admits the signed-in account and nobody else.</p>
+
+    <h3>Filtering happens before anything is written</h3>
+    <p>An application the owner excludes produces no session, no title and no event. It is never stored and then hidden; it is simply never written. Pausing works the same way and survives a restart.</p>
+
+    <h3>Deleting deletes</h3>
+    <p>The database has no "hidden but kept" state. A deleted day, application or full history is gone from the file.</p>
+
+    <h3>It never invents activity</h3>
+    <p>If the computer loses power mid-session, the session is closed at the last confirmed moment and marked as interrupted. Trace would rather undercount than guess.</p>
+  </section>
+
+  <div class="split">
+    <div class="box yes">
+      <h3>What Trace records</h3>
+      <ul>
+        <li>The application in front, and for how long</li>
+        <li>Window titles, which can be switched off</li>
+        <li>Idle time, as a single number from Windows</li>
+        <li>Lock, unlock, sleep, wake, sign-in and shutdown</li>
+        <li>Apps running in the background, if turned on</li>
+        <li>Gaps when Trace itself was not running</li>
+      </ul>
+    </div>
+    <div class="box no">
+      <h3>What Trace never collects</h3>
+      <ul>
+        <li>Keystrokes or passwords</li>
+        <li>Screenshots or screen contents</li>
+        <li>Clipboard contents</li>
+        <li>Microphone or webcam</li>
+        <li>File, message or browsing contents</li>
+        <li>Command lines of running programs</li>
+      </ul>
+    </div>
+  </div>
+  <p>There is no code in the project that could collect the items on the right: no keyboard or mouse hooks, no screen capture, no injection into other programs and no browser extension. Every category on the left is visible in Settings and can be turned off.</p>
+  <figure class="shot"><img src="../images/screenshots/settings-privacy.png" alt="Privacy in Settings"><figcaption><b>Privacy in Settings.</b> The list of what Trace never records is part of the app, not only this document.</figcaption></figure>
+</div>
+
+<!-- Page 4: features -->
+<div class="page">
+  <section>
+    <h2><span class="n">4</span>What it does</h2>
+    <p>The dashboard is organised around the questions people ask of their history.</p>
+    <div class="features">
+      <div class="feature"><h3>Overview</h3><p>Today at a glance: active time, the most used applications, and what is in front right now.</p></div>
+      <div class="feature"><h3>Timeline</h3><p>The day from top to bottom, with every session, idle stretch, lock and gap in order.</p></div>
+      <div class="feature"><h3>Calendar</h3><p>A month at a time, showing which days were busy and linking straight into any day's timeline.</p></div>
+      <div class="feature"><h3>Applications</h3><p>Each program's history across today, the week and the month, with its window titles.</p></div>
+      <div class="feature"><h3>Background apps</h3><p>Programs that ran without a window, such as sync or chat clients, when the owner turns this on.</p></div>
+      <div class="feature"><h3>System</h3><p>Boots, shutdowns, sleeps and sign-ins read from Windows, so gaps in the timeline can be explained.</p></div>
+      <div class="feature"><h3>Protection</h3><p>A PIN on anything that would stop or weaken recording, automatic restart, and a log of every attempt.</p></div>
+      <div class="feature"><h3>Control</h3><p>Pause, exclusions, retention period, JSON export, and deletion by range, by application or in full.</p></div>
+    </div>
+  </section>
+
+
+  <section>
+    <h2><span class="n">5</span>A look at Trace</h2>
+    <p>The screens below come from the version 0.3.0 dashboard, filled with made-up demo history so that no real activity is shown.</p>
+    <figure class="shot"><img src="../images/screenshots/overview.png" alt="Overview"><figcaption><b>Overview.</b> A day at a glance: time in front, sessions, an hour-by-hour chart, gaps, and time by application.</figcaption></figure>
+    <div class="shots">
+      <figure class="shot"><img src="../images/screenshots/timeline.png" alt="Timeline"><figcaption><b>Timeline.</b> Every session, lock and gap in order, with the window that was open.</figcaption></figure>
+      <figure class="shot"><img src="../images/screenshots/calendar.png" alt="Calendar"><figcaption><b>Calendar.</b> A month of activity; each day opens its timeline.</figcaption></figure>
+    </div>
+    <figure class="shot"><img src="../images/screenshots/application-detail.png" alt="Application detail"><figcaption><b>Application detail.</b> One application's day hour by hour, its sessions, and the windows it showed.</figcaption></figure>
+    <div class="shots">
+      <figure class="shot"><img src="../images/screenshots/applications-month.png" alt="Applications"><figcaption><b>Applications.</b> The most used applications over the last 30 days.</figcaption></figure>
+      <figure class="shot"><img src="../images/screenshots/timeline-gaps.png" alt="Gaps"><figcaption><b>Gaps.</b> Only the moments with no record: locks, sleeps and times Trace was not running.</figcaption></figure>
+    </div>
+  </section>
+  <section style="break-before: page">
+    <h2><span class="n">6</span>Protection against being switched off</h2>
+    <p>A record of a computer's use is only useful if it cannot be quietly stopped by the person it would reveal. Version 0.3.0 makes the recorder resistant to that without hiding it.</p>
+    <table>
+      <tr><th>Measure</th><th>What it does</th></tr>
+      <tr><td>Trace PIN</td><td>Pausing, quitting, deleting history, or weakening any setting needs a PIN separate from the Windows password. Turning recording up never does. A one-time recovery code covers a forgotten PIN.</td></tr>
+      <tr><td>Automatic restart</td><td>A visible scheduled task starts the recorder at sign-in and again within a minute if it is ended from Task Manager. The task repairs itself if removed.</td></tr>
+      <tr><td>Settings guard</td><td>If the settings file is edited by hand or damaged, the last approved settings are restored and recording continues.</td></tr>
+      <tr><td>Tamper log</td><td>Every stop, wrong PIN, lockout and change is written down with its time, and gaps link to the timeline for that day.</td></tr>
+      <tr><td>Lockout</td><td>Five free attempts, then waits that double from one minute up to one hour, kept across restarts.</td></tr>
+    </table>
+    <p>None of this is covert. Trace keeps its tray icon, appears in Task Scheduler under its own name, and can always be turned off by the owner.</p>
+    <div class="shots">
+      <figure class="shot"><img src="../images/screenshots/protection.png" alt="Protection page"><figcaption><b>Protection page.</b> Status, auto-restart and the week's stops at the top.</figcaption></figure>
+      <figure class="shot"><img src="../images/screenshots/pin-prompt.png" alt="PIN prompt"><figcaption><b>PIN prompt.</b> Pausing, quitting or weakening a setting asks for the Trace PIN.</figcaption></figure>
+    </div>
+    <figure class="shot"><img src="../images/screenshots/protection-log.png" alt="Tamper log"><figcaption><b>Tamper log.</b> Every stop, wrong PIN and change, with what Trace can and cannot stop.</figcaption></figure>
+  </section>
+</div>
+
+<!-- Page 5: architecture -->
+<div class="page">
+  <section style="break-before: page">
+    <h2><span class="n">7</span>How it is built</h2>
+    <p>Trace is two programs. The recorder is the product; the dashboard is a window onto it and can be closed at any time without interrupting recording.</p>
+
+    <div class="arch">
+      <svg viewBox="0 0 680 330" xmlns="http://www.w3.org/2000/svg" font-family="Outfit, Segoe UI, sans-serif">
+        <defs>
+          <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6b7280"/></marker>
+        </defs>
+        <!-- Windows -->
+        <rect x="20" y="20" width="640" height="46" rx="6" fill="#f3f4f6"/>
+        <text x="40" y="48" font-size="14" font-weight="600" fill="#15171c">Windows</text>
+        <text x="130" y="48" font-size="12" fill="#6b7280">foreground window, idle time, lock and unlock, sleep and wake, event log</text>
+        <line x1="340" y1="66" x2="340" y2="96" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+        <!-- Tracker -->
+        <rect x="20" y="100" width="640" height="104" rx="6" fill="#15171c"/>
+        <text x="40" y="128" font-size="14" font-weight="600" fill="#fff">TraceTracker.exe</text>
+        <text x="180" y="128" font-size="12" fill="#9ca3af">background recorder, owns the tray icon, C# on .NET 10</text>
+        <g font-size="12" font-weight="500">
+          <rect x="40" y="146" width="108" height="38" rx="4" fill="#2a2e36"/><text x="94" y="170" fill="#fff" text-anchor="middle">Watchers</text>
+          <rect x="172" y="146" width="108" height="38" rx="4" fill="#2a2e36"/><text x="226" y="170" fill="#fff" text-anchor="middle">Engine</text>
+          <rect x="304" y="146" width="108" height="38" rx="4" fill="#1f5f8b"/><text x="358" y="170" fill="#fff" text-anchor="middle">Privacy gate</text>
+          <rect x="436" y="146" width="96" height="38" rx="4" fill="#2a2e36"/><text x="484" y="170" fill="#fff" text-anchor="middle">SQLite</text>
+          <rect x="556" y="146" width="84" height="38" rx="4" fill="#2a2e36"/><text x="598" y="170" fill="#fff" text-anchor="middle">Protection</text>
+        </g>
+        <g stroke="#9ca3af" stroke-width="1.5">
+          <line x1="148" y1="165" x2="168" y2="165"/><line x1="280" y1="165" x2="300" y2="165"/><line x1="412" y1="165" x2="432" y2="165"/>
+        </g>
+        <line x1="340" y1="204" x2="340" y2="250" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+        <line x1="352" y1="250" x2="352" y2="208" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+        <text x="368" y="232" font-size="11" fill="#6b7280">named pipe, your Windows account only</text>
+        <!-- Dashboard -->
+        <rect x="20" y="254" width="640" height="56" rx="6" fill="#e8f0f6"/>
+        <text x="40" y="287" font-size="14" font-weight="600" fill="#15171c">Trace.exe</text>
+        <text x="120" y="287" font-size="12" fill="#2c3038">dashboard, Electron with React and TypeScript, never opens the database</text>
+      </svg>
+      <p class="caption">Figure 1. Data flows one way into storage. Only the recorder writes; the dashboard asks for finished figures.</p>
+    </div>
+
+    <h3>Decisions that shape the system</h3>
+    <ul>
+      <li><strong>The recorder outlives the window.</strong> Pausing from the tray works even if the dashboard has crashed or was never opened.</li>
+      <li><strong>One writer.</strong> Every duration and total is calculated in one place, so two screens can never disagree.</li>
+      <li><strong>A named pipe, not a local web port.</strong> A port can be reached by any program and by web pages in the browser; the pipe admits only the owner's account.</li>
+      <li><strong>Per-user install.</strong> No administrator prompt. The application and the history both live inside the user's own profile.</li>
+    </ul>
+  </section>
+</div>
+
+<!-- Page 6: technology, roadmap -->
+<div class="page">
+  <section>
+    <h2><span class="n">8</span>Technology</h2>
+    <table>
+      <tr><th>Part</th><th>Technology</th></tr>
+      <tr><td>Recorder</td><td>C# on .NET 10, published as one self-contained executable. Windows Forms for the tray icon and PIN prompt; direct Windows API calls for window and power events.</td></tr>
+      <tr><td>Storage</td><td>SQLite through Microsoft.Data.Sqlite, with versioned migrations built into the executable and a backup taken before each upgrade.</td></tr>
+      <tr><td>Security</td><td>PBKDF2-SHA256 with 600,000 iterations for the PIN, constant-time comparison, and a pipe restricted to the user's Windows identity.</td></tr>
+      <tr><td>Dashboard</td><td>Electron 43, React 19, TypeScript, Vite, Tailwind CSS 4, TanStack Query, React Router and Recharts.</td></tr>
+      <tr><td>Shared contract</td><td>One message definition kept in matching C# and TypeScript files, so both programs agree on every request.</td></tr>
+      <tr><td>Installer</td><td>electron-builder with NSIS. Upgrades pause automatic restart; uninstalling asks what to do with the history.</td></tr>
+      <tr><td>Testing</td><td>xUnit for the recorder and Vitest with Testing Library for the dashboard: 215 tests in all.</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2><span class="n">9</span>Where it stands</h2>
+    <div class="stage"><div class="when">Version 0.1<small>August 2026</small></div><p>Recording engine, privacy gate, timeline, calendar, applications, tray, installer and crash recovery.<span class="tag done">Released</span></p></div>
+    <div class="stage"><div class="when">Version 0.2<small>November 2026</small></div><p>Correct application names, icons, background apps, Windows system events and a redesigned dashboard.<span class="tag done">Installed</span></p></div>
+    <div class="stage"><div class="when">Version 0.3<small>November 2026</small></div><p>Protection: PIN, automatic restart, settings guard and tamper log.<span class="tag done">Installed</span></p></div>
+    <div class="stage"><div class="when">Next</div><p>A read-only import of the files Windows lists as recently opened, off by default, and a findings view that points out unusual activity such as use during hours the owner was away.<span class="tag next">Planned</span></p></div>
+  </section>
+
+  <section>
+    <h2><span class="n">10</span>Limits and risks</h2>
+    <ul>
+      <li><strong>It sees the computer, not the person.</strong> Trace can show that the laptop was used, not who used it. A shared Windows account looks like one person.</li>
+      <li><strong>It sees applications, not content.</strong> By design it cannot show that a file was sent or a message read; that evidence lives in the other application's own records.</li>
+      <li><strong>An administrator can still stop it.</strong> Protection raises the effort needed and records the attempt, but someone with full control of Windows can remove any program.</li>
+      <li><strong>Misuse as a monitoring tool.</strong> Trace stays visible, local and controlled by the account it records, which keeps it unsuited to watching someone else in secret.</li>
+    </ul>
+  </section>
+
+  <div class="closing">
+    <p>Trace gives the owner of a computer a dependable, private memory of how it was used, and keeps that memory under their control alone.</p>
+  </div>
+</div>
+
+</body>
+</html>

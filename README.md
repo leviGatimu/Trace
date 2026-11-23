@@ -13,7 +13,7 @@ Nothing leaves your machine. There is no account, no server, and no telemetry.
 
 <br>
 
-![Trace — Overview](brand/screenshots/overview.png)
+![Trace — Overview](DOCS/images/screenshots/overview.png)
 
 </div>
 
@@ -50,6 +50,7 @@ happened, never the private content of it.
 | Keystrokes | Passwords | Clipboard contents |
 | Screenshots | Microphone | Webcam |
 | File contents | Browsing history | Message contents |
+| Command lines | Mouse movements | Network traffic |
 
 There are no keyboard or mouse hooks, no screen capture, no DLL injection, and
 no browser integration. Idle detection asks Windows a single question — *how
@@ -71,18 +72,43 @@ Three properties hold structurally rather than by policy:
 
 **Tracking** — foreground application and window, sessions with real
 start/end times, idle detection, lock/unlock, sleep/wake, and recovery from
-crashes and power loss.
+crashes and power loss. Applications are named the way Windows names them
+(registry, package manifest, version info), not by their file name.
 
-**History** — a day ribbon showing the shape of your day, a timeline you can
-read top to bottom, per-application detail, and search across every recorded
-title.
+**History** — an overview of the day, a timeline you can read top to bottom
+(or filter to just the gaps), a calendar, per-application detail across a day,
+week, month or year, and search across every recorded title.
+
+**Windows records** — when the computer started, shut down, slept, woke and was
+signed in, read from the Windows event log, so the gaps in a day explain
+themselves.
+
+**Background apps** *(opt-in)* — which of your own programs ran without a
+window, and for how long. Process names only, never command lines.
+
+**System** — live processor, graphics and memory use. Shown, never stored.
+
+**Protection** — a separate Trace PIN for pausing, quitting, weakening privacy
+settings or deleting history; a visible scheduled task that restarts the
+recorder if it is ended; and a tamper log of every stop, update and repair.
+It makes switching Trace off hard and always visible, not impossible: nothing
+about it is hidden from you.
 
 **Control** — pause, per-application exclusions, a window-title switch, data
 retention, JSON export, and deletion by range or in full.
 
-<div align="center">
-<img src="brand/screenshots/application.png" width="820" alt="Application detail">
-</div>
+<table>
+<tr>
+<td><img src="DOCS/images/screenshots/timeline.png" alt="Timeline"></td>
+<td><img src="DOCS/images/screenshots/calendar.png" alt="Calendar"></td>
+</tr>
+<tr>
+<td><img src="DOCS/images/screenshots/application-detail.png" alt="Application detail"></td>
+<td><img src="DOCS/images/screenshots/protection.png" alt="Protection"></td>
+</tr>
+</table>
+
+Every screen, on made-up demo history: [`DOCS/README.md`](DOCS/README.md#screens).
 
 ## How it works
 
@@ -96,6 +122,7 @@ Two processes. The dashboard is optional; the tracker is the product.
    │  TraceTracker.exe   │   background, owns the tray
    │                     │
    │  watchers → queue → engine → PrivacyGate → SQLite
+   │  identity · processes · protection · tray
    └──────────┬──────────┘
               │  \\.\pipe\Trace.<SID>   (per-user DACL, NDJSON)
               ▼
@@ -129,7 +156,8 @@ under your own account:
 | Application | `%LOCALAPPDATA%\Programs\Trace` |
 | Your history | `%LOCALAPPDATA%\Trace\Data\activity.db` |
 
-Uninstalling asks what to do with your history rather than deciding for you.
+Updating installs over the top and keeps your history. Uninstalling asks what
+to do with your history rather than deciding for you.
 
 ## Build from source
 
@@ -169,9 +197,14 @@ npm run dev:website
 Tests:
 
 ```bash
-dotnet test apps/tracker/Trace.Tracker.Tests   # 80 — engine, persistence, IPC, privacy
-npm test --workspace=apps/desktop              # 24 — formatting and interface
+npm run test:tracker   # 180 — engine, persistence, IPC, privacy, identity, protection
+npm test               # 35 — formatting and interface
+npm run typecheck
 ```
+
+Never point a development tracker at your real history. Set `TRACE_SANDBOX`
+to a folder and the tracker, its pipe and the dashboard all use that folder
+instead of `%LOCALAPPDATA%\Trace`.
 
 ## Layout
 
@@ -181,40 +214,46 @@ apps/
     Windows/        the only place P/Invoke lives
     Engine/         the session state machine, no Windows or database in it
     Privacy/        PrivacyGate — the only route from engine to storage
+    Identity/       application names from registry, packages, version info
+    Processes/      background apps (opt-in)
+    Protection/     PIN, guarded settings, tamper log
     Data/           schema, migrations, repositories, read models
     Ipc/            named-pipe server and request router
+    Tray/           tray icon, menu and PIN prompt
   desktop/        Trace.exe — Electron · React · TypeScript · Tailwind
   website/        the marketing site — Next.js · React · Tailwind
 packages/
   contracts/      the UI ↔ tracker contract: spec, TypeScript, C# mirror
 tools/
   Trace.IconForge/  the logo, generated from code
-DOCS/             product documentation and the implementation plan
+DOCS/             concept note, SRS and plan (PDF), specs, screenshots — see DOCS/README.md
 ```
 
 ## Design
 
-Dark, dense and typographic. No cards and no boxes — sections are separated by
-space and a label, lists by alignment. Times and durations are monospaced so
-columns can be compared without being read.
-
-The signature is the **day ribbon**: twenty-four hours as one continuous band,
-each session a segment in its application's colour, gaps left as gaps. A chart
-of hourly totals answers *how much*; the ribbon answers *when*, which is the
-question a recorder exists to answer.
+Dark and bold: black cards, big numbers, and a few words each. Times and
+durations are monospaced so columns can be compared without being read.
 
 Application colours are hashed from the executable name, so an application is
 the same colour everywhere, permanently, without anything being stored.
 
 ## Status
 
-The MVP is complete and works end to end. Hardening — long soak, sleep/wake
-cycles, large histories, multiple Windows accounts — is next, followed by the
-V2 scope in [`DOCS/MVPV2.md`](DOCS/MVPV2.md): calendar navigation, analytics,
-categories, notes and reports.
+**0.3.0.** The MVP, the V2 calendar and analytics, application identity,
+Windows records, background apps, the System page and tamper protection all
+work end to end.
 
-[`DOCS/IMPLEMENTATION-PLAN.md`](DOCS/IMPLEMENTATION-PLAN.md) records every
-technical decision and, more usefully, the ones that were rejected and why.
+Next, from the [implementation plan](DOCS/pdf/Trace-Implementation-Plan.pdf):
+prove and publish 0.3, an endurance run (long soak, sleep/wake cycles, large
+histories, multiple Windows accounts), then recent files and findings on the
+way to 1.0.
+
+| Read | For |
+|---|---|
+| [Concept note](DOCS/pdf/Trace-Concept-Note.pdf) | Why Trace exists and what it does |
+| [Requirements (SRS)](DOCS/pdf/Trace-SRS.pdf) | Every requirement, numbered |
+| [Implementation plan](DOCS/pdf/Trace-Implementation-Plan.pdf) | The phases to 1.0 |
+| [Technical decisions](DOCS/engineering/technical-implementation-plan.md) | Every technical choice, and the rejected ones with reasons |
 
 [.NET 10 SDK]: https://dotnet.microsoft.com/download
 [Node.js]: https://nodejs.org

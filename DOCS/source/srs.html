@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trace: Software Requirements Specification</title>
+<link rel="stylesheet" href="doc.css">
+<style>
+  @page { @bottom-left { content: "Trace software requirements specification"; } }
+  .req td:nth-child(1) { width: 17mm; }
+  .req td:nth-child(3) { width: 16mm; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div>
+    <p class="kind">Software requirements specification</p>
+    <h1>Trace</h1>
+    <div class="bar"></div>
+    <p class="line">Requirements for a private, local activity history for Windows.</p>
+    <p class="lede">This document states what Trace must do and the qualities it must have. It is the reference for building, testing and accepting every release from 0.3.0 onwards.</p>
+  </div>
+  <dl>
+    <dt>Document</dt><dt>Product version</dt><dt>Status</dt><dt>Date</dt>
+    <dd>SRS 1.0</dd><dd>0.3.0</dd><dd>Baseline</dd><dd>23 November 2026</dd>
+  </dl>
+</div>
+
+<section>
+  <h2>Contents</h2>
+  <ol class="toc">
+    <li><span>1</span>Introduction<small>Purpose, scope, definitions and references</small></li>
+    <li><span>2</span>Overall description<small>Product perspective, users, environment, constraints and assumptions</small></li>
+    <li><span>3</span>Functional requirements<small>Recording, history, privacy controls, protection, Windows integration</small></li>
+    <li><span>4</span>Non-functional requirements<small>Privacy, security, reliability, performance, usability, maintainability</small></li>
+    <li><span>5</span>External interfaces<small>User interface, operating system, inter-process interface, files</small></li>
+    <li><span>6</span>Data requirements<small>What is stored, where, and for how long</small></li>
+    <li><span>7</span>Verification<small>How each group of requirements is checked</small></li>
+  </ol>
+</section>
+
+<section class="new-page">
+  <h2><span class="n">1</span>Introduction</h2>
+
+  <h3><span class="n">1.1</span>Purpose</h3>
+  <p>This specification defines the functional and non-functional requirements of Trace. It is written for the owner of the product, for anyone building or reviewing it, and for whoever tests a release before it is installed.</p>
+
+  <h3><span class="n">1.2</span>Scope</h3>
+  <p>Trace records how a single Windows computer is used, by the person who owns it, and presents that history in a desktop dashboard. It consists of two programs: the <strong>recorder</strong> (<code>TraceTracker.exe</code>), which runs in the background and writes the history, and the <strong>dashboard</strong> (<code>Trace.exe</code>), which displays it. A marketing website exists in the same repository and is outside the scope of this document.</p>
+  <p>Trace is not a workplace monitoring tool, a parental control product or a backup system. It does not send data anywhere and has no server component.</p>
+
+  <h3><span class="n">1.3</span>Definitions</h3>
+  <table class="kv">
+    <tbody>
+      <tr><td>Owner</td><td>The person whose Windows account Trace runs under, and the only intended user.</td></tr>
+      <tr><td>Session</td><td>A continuous period during which one application was in the foreground, with a start, an end and an end reason.</td></tr>
+      <tr><td>Window session</td><td>A period within a session during which one window title was shown, kept when it lasts at least 5 seconds.</td></tr>
+      <tr><td>Idle</td><td>A period with no keyboard or mouse input longer than the idle threshold (default 5 minutes).</td></tr>
+      <tr><td>Gap</td><td>A period for which Trace holds no record, because the recorder was not running or the computer was off.</td></tr>
+      <tr><td>Heartbeat</td><td>A timestamp the recorder writes every 30 seconds, used to close sessions after an unclean stop.</td></tr>
+      <tr><td>Guarded setting</td><td>A setting whose weakening stops or reduces recording, and therefore needs the Trace PIN.</td></tr>
+      <tr><td>Tamper log</td><td>The record of stops, pauses, deletions, PIN attempts and guarded changes.</td></tr>
+      <tr><td>Shall / should / may</td><td>Must, should and could priorities respectively, as marked against each requirement.</td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="n">1.4</span>References</h3>
+  <p>The detailed design documents in the <code>DOCS</code> folder elaborate on these requirements: <em>Tracking</em>, <em>Privacy</em>, <em>Data and database</em>, <em>Windows Integration and Application Lifecycle</em>, <em>Project architecture</em>, <em>Implementation plan</em> and the <em>Trace 2.0 plan</em>. Where a design document and this specification disagree, this specification governs and the design document is corrected.</p>
+</section>
+
+<section>
+  <h2><span class="n">2</span>Overall description</h2>
+
+  <h3><span class="n">2.1</span>Product perspective</h3>
+  <p>Trace is a standalone, self-contained desktop product. The recorder observes Windows through documented operating-system interfaces and is the only component that reads or writes the history. The dashboard talks to the recorder over a local named pipe. Neither program uses the network.</p>
+
+  <div class="figure">
+    <svg viewBox="0 0 680 150" xmlns="http://www.w3.org/2000/svg" font-family="Outfit, Segoe UI, sans-serif">
+      <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6b7280"/></marker></defs>
+      <rect x="0" y="40" width="150" height="70" rx="6" fill="#f3f4f6"/>
+      <text x="75" y="72" font-size="13" font-weight="600" fill="#15171c" text-anchor="middle">Windows</text>
+      <text x="75" y="90" font-size="10" fill="#6b7280" text-anchor="middle">events and event log</text>
+      <line x1="150" y1="75" x2="196" y2="75" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+      <rect x="200" y="30" width="200" height="90" rx="6" fill="#15171c"/>
+      <text x="300" y="68" font-size="13" font-weight="600" fill="#fff" text-anchor="middle">Recorder</text>
+      <text x="300" y="86" font-size="10" fill="#9ca3af" text-anchor="middle">sole reader and writer</text>
+      <line x1="300" y1="120" x2="300" y2="140" stroke="#6b7280" stroke-width="1.5"/>
+      <text x="312" y="142" font-size="10" fill="#6b7280">activity.db, settings.json</text>
+      <line x1="400" y1="68" x2="476" y2="68" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+      <line x1="480" y1="84" x2="404" y2="84" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+      <text x="440" y="60" font-size="9.5" fill="#6b7280" text-anchor="middle">named pipe</text>
+      <rect x="480" y="30" width="200" height="90" rx="6" fill="#e8f0f6"/>
+      <text x="580" y="68" font-size="13" font-weight="600" fill="#15171c" text-anchor="middle">Dashboard</text>
+      <text x="580" y="86" font-size="10" fill="#6b7280" text-anchor="middle">optional, read and control</text>
+    </svg>
+    <p class="caption">Figure 1. System context. No component has a network connection.</p>
+  </div>
+
+  <h3><span class="n">2.2</span>Product functions</h3>
+  <ul>
+    <li>Record the foreground application, window titles, idle time and system state changes.</li>
+    <li>Reconstruct and present the history by day, by month and by application.</li>
+    <li>Explain gaps using Windows' own boot, sleep and sign-in records.</li>
+    <li>Let the owner pause, exclude, export, limit and delete any of the history.</li>
+    <li>Resist being stopped or weakened by someone other than the owner, and record any attempt.</li>
+  </ul>
+
+  <h3><span class="n">2.3</span>Users</h3>
+  <p>There is one user class: the <strong>owner</strong>, a non-specialist who wants to look back at their own computer's use. A secondary actor, the <strong>other person</strong>, is anyone who uses the computer without the owner's knowledge; Trace must keep recording and must not let them stop it unnoticed.</p>
+
+  <h3><span class="n">2.4</span>Operating environment</h3>
+  <table class="kv">
+    <tbody>
+      <tr><td>Operating system</td><td>Windows 10 version 1809 or later, and Windows 11, 64-bit.</td></tr>
+      <tr><td>Privileges</td><td>A standard user account. No administrator rights at install or run time.</td></tr>
+      <tr><td>Install location</td><td><code>%LOCALAPPDATA%\Programs\Trace</code> for the programs, <code>%LOCALAPPDATA%\Trace</code> for data.</td></tr>
+      <tr><td>Dependencies</td><td>None to install. The recorder is a self-contained .NET 10 executable and the dashboard bundles Electron.</td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="n">2.5</span>Constraints</h3>
+  <ul>
+    <li>No network access, account, telemetry or remote service of any kind.</li>
+    <li>No keyboard or mouse hooks, screen capture, code injection or browser extension.</li>
+    <li>No stealth: Trace must always be visible as a tray icon and under its own names in Windows.</li>
+    <li>Recorder in C# on .NET 10; dashboard in Electron, React and TypeScript; storage in SQLite.</li>
+  </ul>
+
+  <h3><span class="n">2.6</span>Assumptions and dependencies</h3>
+  <ul>
+    <li>The owner has their own Windows account. A shared account cannot be told apart from one person.</li>
+    <li>Windows keeps its System event log for at least several weeks, and Task Scheduler is available.</li>
+    <li>Someone with administrator rights can remove any program; protection aims to make stopping Trace noticeable, not impossible.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="n">3</span>Functional requirements</h2>
+  <p>Each requirement has an identifier, a priority and a current state. <span class="pri must">Must</span> requirements are needed for a release to be accepted; <span class="pri should">Should</span> requirements are expected; <span class="pri could">Could</span> requirements are planned improvements.</p>
+
+  <h3><span class="n">3.1</span>Recording</h3>
+  <table class="req">
+    <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td class="id">FR-REC-01</td><td>The recorder shall open a session whenever a different application comes to the foreground, and close the previous one with the reason it ended.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-REC-02</td><td>The recorder shall identify each application by its executable and show a recognisable name, including for packaged (Store) applications.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-REC-03</td><td>The recorder shall record window titles as window sessions, discarding title changes that last less than 5 seconds.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-REC-04</td><td>The recorder shall detect idle time after a configurable threshold, backdating the start of idle to the last input.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-REC-05</td><td>The recorder shall close the open session on lock, sleep, shutdown and sign-out, and open a session for the current foreground application on unlock and wake.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-REC-06</td><td>The recorder shall write a heartbeat every 30 seconds, and on start shall close any session left open at the last heartbeat with the reason "crash recovery".</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-REC-07</td><td>The recorder shall not record itself or the dashboard as activity.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-REC-08</td><td>The recorder may record applications running without a window, when the owner turns this on; it is off by default.</td><td><span class="pri should">Should</span></td></tr>
+      <tr><td class="id">FR-REC-09</td><td>The recorder shall import boot, shutdown, sleep, wake, sign-in and sign-out records from the Windows System log, when enabled; it is on by default.</td><td><span class="pri should">Should</span></td></tr>
+      <tr><td class="id">FR-REC-10</td><td>The recorder may import the names and times of recently opened files from the Windows Recent items list, read-only and off by default.</td><td><span class="pri could">Could</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="n">3.2</span>History and presentation</h3>
+  <table class="req">
+    <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td class="id">FR-HIS-01</td><td>The dashboard shall show an overview of today: active time, most used applications and the application in front now.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-HIS-02</td><td>The dashboard shall show a timeline for any day, listing sessions, idle periods, locks and gaps in order, merging switches shorter than 5 seconds.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-HIS-03</td><td>The dashboard shall show a month calendar indicating activity per day, linking to that day's timeline.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-HIS-04</td><td>The dashboard shall list applications with their usage for today, the last 7 days and the month, and a detail view with window titles.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-HIS-05</td><td>The dashboard shall show Windows system events alongside the history so that gaps can be explained.</td><td><span class="pri should">Should</span></td></tr>
+      <tr><td class="id">FR-HIS-06</td><td>Day boundaries, totals and times shall use the owner's local time zone and clock format.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-HIS-07</td><td>The dashboard shall show live updates while open without the owner refreshing.</td><td><span class="pri should">Should</span></td></tr>
+      <tr><td class="id">FR-HIS-08</td><td>The dashboard may present findings that point out unusual activity, such as use while the owner was normally away.</td><td><span class="pri could">Could</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="n">3.3</span>Privacy controls</h3>
+  <table class="req">
+    <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td class="id">FR-PRV-01</td><td>The owner shall be able to pause and resume recording from the dashboard and the tray. While paused, nothing shall be written or buffered, and the pause shall survive a restart.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-PRV-02</td><td>The owner shall be able to exclude applications. An excluded application shall produce no row in any table.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-PRV-03</td><td>The owner shall be able to turn window titles off, after which no title is stored.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-PRV-04</td><td>The owner shall be able to set a retention period; the default is to keep history indefinitely.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-PRV-05</td><td>The owner shall be able to delete history by range, by application or entirely. Deleted data shall be removed, not hidden.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-PRV-06</td><td>The owner shall be able to export the history as JSON.</td><td><span class="pri should">Should</span></td></tr>
+      <tr><td class="id">FR-PRV-07</td><td>First run shall explain what is recorded and ask before starting with Windows.</td><td><span class="pri must">Must</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="n">3.4</span>Protection</h3>
+  <table class="req">
+    <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td class="id">FR-PRO-01</td><td>The owner shall be able to set a Trace PIN of 4 to 12 digits, separate from the Windows password. Repeated or consecutive digits shall be refused.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-PRO-02</td><td>Setting a PIN shall produce a one-time recovery code, shown once, that can unlock in place of the PIN.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-PRO-03</td><td>With a PIN set, pausing, quitting, deleting history, and weakening any guarded setting shall require the PIN. Strengthening a setting shall never require it.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-PRO-04</td><td>The guarded settings shall be: recording on, start with Windows, window titles, exclusions, retention, Windows records import and background apps.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-PRO-05</td><td>The PIN check shall be enforced by the recorder, so that requests from any program, not only the dashboard, are refused while locked.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-PRO-06</td><td>A correct PIN shall unlock for 5 minutes. The owner shall be able to lock again at once. A restart shall always lock.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-PRO-07</td><td>After 5 wrong attempts, further attempts shall be refused for 1 minute, doubling to a maximum of 1 hour. The count shall survive restarts.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-PRO-08</td><td>With protection on, the recorder shall start at sign-in and restart within about one minute if ended, using a visible per-user scheduled task, and shall repair the task if it is removed or disabled.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-PRO-09</td><td>If the settings file is edited outside Trace or cannot be read, the recorder shall restore the last approved guarded settings and keep recording.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-PRO-10</td><td>The recorder shall log unexpected stops, quits, pauses, resumes, guarded changes, deletions, wrong PINs, lockouts, recovery code use, settings repairs, task repairs and updates, each with its time.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-PRO-11</td><td>The dashboard shall show the tamper log, mark entries that need attention, and show a count of unseen entries in the navigation.</td><td><span class="pri should">Should</span></td></tr>
+      <tr><td class="id">FR-PRO-12</td><td>Quitting with the PIN shall stop automatic restart until the next start, and shall not be logged as unexpected.</td><td><span class="pri must">Must</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="n">3.5</span>Windows integration and lifecycle</h3>
+  <table class="req">
+    <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td class="id">FR-WIN-01</td><td>The recorder shall show a tray icon reflecting whether it is recording or paused, with menu items to open the dashboard, pause and quit.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-WIN-02</td><td>Only one recorder and one dashboard shall run per Windows account.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-WIN-03</td><td>Closing the dashboard shall not stop recording.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-WIN-04</td><td>The dashboard shall report when the recorder is unavailable, offer to restart it, and reconnect automatically.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-WIN-05</td><td>The installer shall install per user without an administrator prompt, and an update shall preserve the history and settings.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-WIN-06</td><td>Before migrating the database to a new schema, the recorder shall take a backup copy.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">FR-WIN-07</td><td>Uninstalling shall ask whether to keep or delete the history, and shall remove the scheduled task.</td><td><span class="pri must">Must</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2><span class="n">4</span>Non-functional requirements</h2>
+
+  <h3><span class="n">4.1</span>Privacy</h3>
+  <table class="req">
+    <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td class="id">NFR-PRV-01</td><td>No data shall leave the computer. Neither program shall open a network connection.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">NFR-PRV-02</td><td>Trace shall never collect keystrokes, passwords, screen contents, clipboard, audio, video, file or message contents, browsing history or command lines.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">NFR-PRV-03</td><td>Every category of recorded data shall be visible to the owner and switchable in Settings.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">NFR-PRV-04</td><td>Privacy filtering shall happen before data is written, through a single gate that all writes pass.</td><td><span class="pri must">Must</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="n">4.2</span>Security</h3>
+  <table class="req">
+    <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td class="id">NFR-SEC-01</td><td>The named pipe shall be restricted to the owner's Windows identity and shall refuse to start if the name is already taken.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">NFR-SEC-02</td><td>The PIN and recovery code shall be stored only as salted PBKDF2-SHA256 hashes with at least 600,000 iterations, and compared in constant time.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">NFR-SEC-03</td><td>Both programs shall run with the owner's normal privileges and never request elevation.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">NFR-SEC-04</td><td>The recorder shall validate every request it receives and answer with a specific error code, including a distinct code for a locked action.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">NFR-SEC-05</td><td>Third-party libraries with known high-severity vulnerabilities shall not ship.</td><td><span class="pri must">Must</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="n">4.3</span>Reliability and data integrity</h3>
+  <table class="req">
+    <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td class="id">NFR-REL-01</td><td>After an unclean stop, no more than 30 seconds of activity shall be lost, and no activity shall be invented.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">NFR-REL-02</td><td>For every session, active time plus idle time shall equal its duration.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">NFR-REL-03</td><td>A corrupt database shall be set aside under a new name and a fresh one started; the owner shall be told where the old file is.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">NFR-REL-04</td><td>The recorder shall refuse to run against a database from a newer version and tell the owner to update.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">NFR-REL-05</td><td>The recorder shall run continuously for at least 72 hours, with sleep, wake, lock and unlock cycles, without growth in memory or handles.</td><td><span class="pri should">Should</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="n">4.4</span>Performance</h3>
+  <table class="req">
+    <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td class="id">NFR-PER-01</td><td>The recorder shall use under 1% of one CPU core on average and under 100 MB of memory during normal use.</td><td><span class="pri should">Should</span></td></tr>
+      <tr><td class="id">NFR-PER-02</td><td>A day's timeline shall load in under 1 second with at least one year of history.</td><td><span class="pri should">Should</span></td></tr>
+      <tr><td class="id">NFR-PER-03</td><td>Status polling by the dashboard shall not start external processes; protection status shall be served from memory.</td><td><span class="pri must">Must</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="n">4.5</span>Usability and accessibility</h3>
+  <table class="req">
+    <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td class="id">NFR-USE-01</td><td>Every view shall have designed loading, empty, error and partial states.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">NFR-USE-02</td><td>Error messages shall say what happened and what to do next, in plain language.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">NFR-USE-03</td><td>All controls shall be usable by keyboard, with visible focus, and animation shall respect the reduced-motion setting.</td><td><span class="pri must">Must</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="n">4.6</span>Maintainability</h3>
+  <table class="req">
+    <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td class="id">NFR-MNT-01</td><td>The interface between the programs shall be defined once, in matching C# and TypeScript contract files.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">NFR-MNT-02</td><td>Database changes shall be made only through numbered migrations embedded in the recorder.</td><td><span class="pri must">Must</span></td></tr>
+      <tr><td class="id">NFR-MNT-03</td><td>The recorder shall build with warnings treated as errors, and every change to behaviour shall carry an automated test.</td><td><span class="pri must">Must</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2><span class="n">5</span>External interfaces</h2>
+
+  <h3><span class="n">5.1</span>User interface</h3>
+  <p>The dashboard is a frameless desktop window with its own title bar and a sidebar of pages: Overview, Timeline, Calendar, Applications, Background, System, Protection and Settings. The visual language uses bold dark cards with large figures. A PIN prompt appears over any page when a guarded action is attempted. The recorder's tray icon and menu are the only interface when the dashboard is closed.</p>
+  <p>The screens that satisfy the history, privacy and protection requirements are shown below with the requirements they meet.</p>
+  <figure class="shot"><img src="../images/screenshots/overview.png" alt="Overview (FR-HIS-01, FR-HIS-07)"><figcaption><b>Overview (FR-HIS-01, FR-HIS-07).</b> Today's figures, an hour-by-hour chart, gaps and time by application.</figcaption></figure>
+  <div class="shots">
+      <figure class="shot"><img src="../images/screenshots/timeline.png" alt="Timeline (FR-HIS-02)"><figcaption><b>Timeline (FR-HIS-02).</b> Sessions, idle periods, locks and gaps in order.</figcaption></figure>
+      <figure class="shot"><img src="../images/screenshots/calendar.png" alt="Calendar (FR-HIS-03)"><figcaption><b>Calendar (FR-HIS-03).</b> Activity per day across the month.</figcaption></figure>
+    </div>
+  <div class="shots">
+      <figure class="shot"><img src="../images/screenshots/applications.png" alt="Applications (FR-HIS-04)"><figcaption><b>Applications (FR-HIS-04).</b> Usage per application for the chosen day.</figcaption></figure>
+      <figure class="shot"><img src="../images/screenshots/application-detail.png" alt="Application detail (FR-HIS-04)"><figcaption><b>Application detail (FR-HIS-04).</b> One application's hours, sessions and windows.</figcaption></figure>
+    </div>
+  <div class="shots">
+      <figure class="shot"><img src="../images/screenshots/background.png" alt="Background apps (FR-REC-08)"><figcaption><b>Background apps (FR-REC-08).</b> Off by default; past records stay visible.</figcaption></figure>
+      <figure class="shot"><img src="../images/screenshots/system.png" alt="System (FR-HIS-05)"><figcaption><b>System (FR-HIS-05).</b> Live processor, graphics and memory use, not saved.</figcaption></figure>
+    </div>
+  <div class="shots">
+      <figure class="shot"><img src="../images/screenshots/protection.png" alt="Protection (FR-PRO-08, FR-PRO-11)"><figcaption><b>Protection (FR-PRO-08, FR-PRO-11).</b> Lock state, auto-restart and recent stops.</figcaption></figure>
+      <figure class="shot"><img src="../images/screenshots/pin-prompt.png" alt="PIN prompt (FR-PRO-03, FR-PRO-05)"><figcaption><b>PIN prompt (FR-PRO-03, FR-PRO-05).</b> Shown whenever the recorder refuses a guarded action.</figcaption></figure>
+    </div>
+  <div class="shots">
+      <figure class="shot"><img src="../images/screenshots/settings.png" alt="Recording settings (FR-PRV-03, FR-REC-04)"><figcaption><b>Recording settings (FR-PRV-03, FR-REC-04).</b> Window titles, idle threshold and data categories.</figcaption></figure>
+      <figure class="shot"><img src="../images/screenshots/settings-excluded.png" alt="Excluded apps (FR-PRV-02)"><figcaption><b>Excluded apps (FR-PRV-02).</b> Applications Trace ignores entirely.</figcaption></figure>
+    </div>
+  <div class="shots">
+      <figure class="shot"><img src="../images/screenshots/settings-data.png" alt="Your data (FR-PRV-04 to FR-PRV-06)"><figcaption><b>Your data (FR-PRV-04 to FR-PRV-06).</b> Retention, export and deletion.</figcaption></figure>
+      <figure class="shot"><img src="../images/screenshots/settings-privacy.png" alt="Privacy (NFR-PRV-02)"><figcaption><b>Privacy (NFR-PRV-02).</b> What Trace never collects, stated in the app.</figcaption></figure>
+    </div>
+
+  <h3><span class="n">5.2</span>Operating system interfaces</h3>
+  <table class="kv">
+    <tbody>
+      <tr><td>Foreground and titles</td><td>Windows event hooks for foreground and title changes, read from outside other processes.</td></tr>
+      <tr><td>Idle</td><td>The last-input time reported by Windows, as a number only.</td></tr>
+      <tr><td>Session and power</td><td>Session change, power broadcast and end-session messages.</td></tr>
+      <tr><td>System log</td><td>The Windows System event log, read without administrator rights.</td></tr>
+      <tr><td>Startup</td><td>The per-user Run key and, with protection on, a per-user scheduled task named "Trace Recorder".</td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="n">5.3</span>Inter-process interface</h3>
+  <p>The programs exchange newline-delimited JSON over the named pipe <code>\\.\pipe\Trace.&lt;SID&gt;</code>. Each request names a method and carries parameters; each response is either a result or an error with a code. Methods are grouped by area: tracking (status, pause, resume), activity (day, timeline, calendar), applications, settings, data (export and delete), system records and protection (status, setup, unlock, lock, disable, log).</p>
+
+  <h3><span class="n">5.4</span>Files</h3>
+  <table class="kv">
+    <tbody>
+      <tr><td>History</td><td><code>%LOCALAPPDATA%\Trace\Data\activity.db</code>, SQLite in write-ahead-log mode.</td></tr>
+      <tr><td>Settings</td><td><code>settings.json</code> in the Trace data folder, with guarded values mirrored in the database.</td></tr>
+      <tr><td>Logs</td><td>A rolling text log of the recorder's own operation, with no activity content.</td></tr>
+      <tr><td>Markers</td><td>Short-lived files that tell the recorder an update or an approved quit took place.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2><span class="n">6</span>Data requirements</h2>
+  <table>
+    <thead><tr><th>Table</th><th>Holds</th><th>Since</th></tr></thead>
+    <tbody>
+      <tr><td class="k">applications</td><td>Executable, display name, category and icon reference for each application seen.</td><td>Schema 1, 2</td></tr>
+      <tr><td class="k">sessions</td><td>Application, start, end, active and idle seconds, end reason.</td><td>Schema 1</td></tr>
+      <tr><td class="k">window_sessions</td><td>Window title, start and end within a session.</td><td>Schema 1</td></tr>
+      <tr><td class="k">events</td><td>Lock, unlock, sleep, wake, idle and recorder start and stop.</td><td>Schema 1</td></tr>
+      <tr><td class="k">tracker_state</td><td>Heartbeat, current state and open session.</td><td>Schema 1</td></tr>
+      <tr><td class="k">profiles</td><td>Application identity profiles used to name applications correctly.</td><td>Schema 2</td></tr>
+      <tr><td class="k">windows_records</td><td>Imported boot, sleep and sign-in records, with import progress.</td><td>Schema 3</td></tr>
+      <tr><td class="k">process_instances</td><td>Background applications: name, start and end, when enabled.</td><td>Schema 4</td></tr>
+      <tr><td class="k">protection</td><td>PIN and recovery hashes, failed attempts, lockout and approved settings.</td><td>Schema 5</td></tr>
+      <tr><td class="k">tamper_log</td><td>Time, kind, detail and affected period of each protection event.</td><td>Schema 5</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li>All times shall be stored in UTC milliseconds and converted to local time only for display.</li>
+    <li>History shall be kept until the owner's retention period or a deletion removes it.</li>
+    <li>The database shall enforce integrity with constraints and foreign keys, not only in code.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="n">7</span>Verification</h2>
+  <table>
+    <thead><tr><th>Area</th><th>Method</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Recording rules</td><td>Unit tests feed scripted signals to the session engine and assert what is written.</td><td>xUnit suite</td></tr>
+      <tr><td class="k">Privacy gate</td><td>Tests count rows in every table after an excluded application and while paused.</td><td>xUnit suite</td></tr>
+      <tr><td class="k">Recovery and migrations</td><td>Tests seed open sessions and older schemas, then start the recorder.</td><td>xUnit suite</td></tr>
+      <tr><td class="k">Protection</td><td>Tests cover PIN rules, lockout timing, guarded changes, settings repair and the tamper log; an opt-in test registers the real scheduled task.</td><td>xUnit suite, opt-in check</td></tr>
+      <tr><td class="k">Dashboard</td><td>Component tests against a mocked bridge, including the PIN retry flow.</td><td>Vitest suite</td></tr>
+      <tr><td class="k">End to end</td><td>A scripted manual day: switch, idle, lock, sleep; then end the recorder in Task Manager and confirm restart and log entry.</td><td>Release runbook</td></tr>
+      <tr><td class="k">Endurance</td><td>A 72-hour run with automated switching and power cycles.</td><td>Soak report</td></tr>
+    </tbody>
+  </table>
+  <p>At the time of writing, 180 recorder tests and 35 dashboard tests pass. A release is accepted when every Must requirement is covered by passing automated tests or a completed runbook step.</p>
+
+  <div class="closing">
+    <p class="muted">Changes to this specification are made in <code>DOCS/source/srs.html</code> and recorded by raising the document version on the cover.</p>
+  </div>
+</section>
+
+</body>
+</html>

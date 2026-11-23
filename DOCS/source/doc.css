@@ -1,0 +1,125 @@
+@font-face { font-family: "Outfit"; font-weight: 400; src: url("../../node_modules/@fontsource/outfit/files/outfit-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Outfit"; font-weight: 500; src: url("../../node_modules/@fontsource/outfit/files/outfit-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Outfit"; font-weight: 600; src: url("../../node_modules/@fontsource/outfit/files/outfit-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Outfit"; font-weight: 700; src: url("../../node_modules/@fontsource/outfit/files/outfit-latin-700-normal.woff2") format("woff2"); }
+
+:root {
+  --ink: #15171c;
+  --body: #2c3038;
+  --muted: #6b7280;
+  --rule: #d9dce1;
+  --wash: #f3f4f6;
+  --accent: #1f5f8b;
+  --accent-wash: #e8f0f6;
+  --never: #8a2f2f;
+  --never-wash: #f7ecec;
+}
+
+@page {
+  size: A4;
+  margin: 22mm 20mm 22mm 20mm;
+  @bottom-left { content: "Trace"; font: 500 8pt "Outfit", sans-serif; color: #6b7280; }
+  @bottom-right { content: counter(page) " of " counter(pages); font: 500 8pt "Outfit", sans-serif; color: #6b7280; }
+}
+@page cover {
+  margin: 0;
+  @bottom-left { content: none; }
+  @bottom-right { content: none; }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body {
+  margin: 0;
+  background: #fff;
+  color: var(--body);
+  font: 10.2pt/1.55 Cambria, Georgia, "Times New Roman", serif;
+  hyphens: auto;
+}
+
+h1, h2, h3, h4 { font-family: "Outfit", "Segoe UI", sans-serif; color: var(--ink); break-after: avoid; }
+h2 { font-size: 18pt; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 4mm; padding-top: 1mm; }
+h2 .n { color: var(--accent); font-weight: 500; margin-right: 3mm; }
+h3 { font-size: 11.5pt; font-weight: 600; margin: 6mm 0 2mm; }
+h3 .n { color: var(--accent); font-weight: 500; margin-right: 2mm; }
+h4 { font-size: 10pt; font-weight: 600; margin: 4mm 0 1.5mm; }
+p { margin: 0 0 3mm; }
+h2 + p, h3 + p, h4 + p { break-before: avoid; }
+ul, ol { margin: 0 0 3mm; padding-left: 5mm; }
+li { margin-bottom: 1.2mm; break-inside: avoid; }
+strong { color: var(--ink); }
+section { margin-bottom: 9mm; }
+.new-page { break-before: page; }
+.muted { color: var(--muted); }
+
+/* Cover */
+.cover {
+  page: cover;
+  height: 297mm; width: 210mm;
+  display: flex; flex-direction: column; justify-content: space-between;
+  padding: 34mm 24mm 24mm;
+  background: var(--ink); color: #e9ebef;
+}
+.cover .kind { font: 500 11pt "Outfit", sans-serif; color: #9fb7c9; margin: 0 0 10mm; }
+.cover h1 { font-size: 46pt; font-weight: 700; color: #fff; letter-spacing: -0.025em; line-height: 1.05; margin: 0 0 8mm; }
+.cover .bar { height: 1.2mm; width: 36mm; background: #5b9bc9; margin-bottom: 12mm; }
+.cover .line { font: 400 18pt/1.3 "Outfit", sans-serif; color: #fff; max-width: 145mm; margin: 0 0 8mm; }
+.cover .lede { font-size: 11.5pt; line-height: 1.6; color: #c3c8d0; max-width: 135mm; }
+.cover dl { display: grid; grid-template-columns: repeat(4, auto); gap: 2mm 12mm; justify-content: start; margin: 0; font-family: "Outfit", sans-serif; }
+.cover dt { font-size: 8.5pt; color: #8d95a1; }
+.cover dd { margin: 0; font-size: 11pt; font-weight: 500; color: #fff; }
+
+/* Contents */
+.toc { list-style: none; padding: 0; margin: 2mm 0 0; font-family: "Outfit", sans-serif; }
+.toc li { display: grid; grid-template-columns: 9mm 1fr; padding: 2.2mm 0; border-bottom: 0.25mm solid var(--rule); font-size: 10.5pt; color: var(--ink); margin: 0; }
+.toc li span { color: var(--accent); }
+.toc li small { grid-column: 2; color: var(--muted); font-size: 8.8pt; }
+
+/* Callout */
+.callout { background: var(--accent-wash); border-left: 1.4mm solid var(--accent); padding: 5mm 6mm 2.5mm; margin: 3mm 0 6mm; break-inside: avoid; }
+.callout h3 { margin-top: 0; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; margin: 2mm 0 5mm; font-size: 9.3pt; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th { font: 600 8.3pt "Outfit", sans-serif; color: var(--muted); text-align: left; padding: 0 3mm 1.8mm 0; border-bottom: 0.4mm solid var(--ink); }
+td { padding: 1.9mm 3mm 1.9mm 0; border-bottom: 0.25mm solid var(--rule); vertical-align: top; }
+td.k, td:first-child.k { font-family: "Outfit", sans-serif; font-weight: 500; color: var(--ink); white-space: nowrap; }
+table.kv td:first-child { font-family: "Outfit", sans-serif; font-weight: 500; color: var(--ink); width: 30%; }
+
+/* Requirement IDs and priority pills */
+.id { font: 600 8.3pt "Outfit", sans-serif; color: var(--accent); white-space: nowrap; }
+.pri { display: inline-block; font: 500 7.5pt "Outfit", sans-serif; padding: 0.3mm 2mm; border-radius: 3mm; white-space: nowrap; }
+.must { background: var(--ink); color: #fff; }
+.should { background: var(--accent-wash); color: var(--accent); }
+.could { background: var(--wash); color: var(--muted); }
+.state { display: inline-block; font: 500 7.5pt "Outfit", sans-serif; padding: 0.3mm 2mm; border-radius: 3mm; white-space: nowrap; }
+.done { background: var(--accent-wash); color: var(--accent); }
+.verify { background: #fdf3e1; color: #8a5a12; }
+.next { background: var(--wash); color: var(--muted); }
+
+/* Figures */
+.figure { margin: 4mm 0 6mm; break-inside: avoid; }
+.figure svg { width: 100%; height: auto; display: block; }
+.caption { font: 400 8.5pt "Outfit", sans-serif; color: var(--muted); margin-top: 2mm; }
+
+/* Phase cards */
+.phase { border-top: 0.6mm solid var(--ink); padding-top: 3mm; margin: 0 0 7mm; }
+.phase-head { display: flex; justify-content: space-between; align-items: baseline; gap: 4mm; break-after: avoid; }
+.phase-head h3 { margin: 0 0 2mm; font-size: 13pt; }
+.phase-head .meta { font: 500 8.5pt "Outfit", sans-serif; color: var(--muted); white-space: nowrap; }
+.phase .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+.phase h4 { margin-top: 2mm; }
+.phase ul { font-size: 9.6pt; }
+
+.closing { margin-top: 8mm; padding-top: 4mm; border-top: 0.4mm solid var(--ink); }
+
+/* Screenshots */
+.shot { margin: 3mm 0 5mm; break-inside: avoid; }
+.shot img { display: block; width: 100%; height: auto; border-radius: 2mm; border: 0.3mm solid #d9dce1; }
+.shot figcaption { font: 400 8.5pt "Outfit", sans-serif; color: #6b7280; margin-top: 1.8mm; }
+.shot figcaption b { color: #15171c; font-weight: 600; }
+.shots { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm 5mm; margin: 3mm 0 5mm; }
+.shots .shot { margin: 0; }
+figure { margin: 0; }
